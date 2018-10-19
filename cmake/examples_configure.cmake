@@ -1,0 +1,23 @@
+if (NOT DEFINED TARGET_TOOLCHAIN)
+    SET (TARGET_TOOLCHAIN "mcc-linux-x86")
+endif()
+include ("lib/${EDGE_SOURCES_DIR_NAME}/cmake/toolchains/${TARGET_TOOLCHAIN}.cmake")
+
+if (DEFINED TRACE_LEVEL)
+    if (${TRACE_LEVEL} STREQUAL "DEBUG")
+        add_definitions ("-DMBED_TRACE_MAX_LEVEL=TRACE_LEVEL_DEBUG")
+    elseif (${TRACE_LEVEL} STREQUAL "INFO")
+        add_definitions ("-DMBED_TRACE_MAX_LEVEL=TRACE_LEVEL_INFO")
+    elseif (${TRACE_LEVEL} STREQUAL "WARN")
+        add_definitions ("-DMBED_TRACE_MAX_LEVEL=TRACE_LEVEL_WARN")
+    elseif (${TRACE_LEVEL} STREQUAL "ERROR")
+        add_definitions ("-DMBED_TRACE_MAX_LEVEL=TRACE_LEVEL_ERROR")
+    else ()
+        MESSAGE (FATAL_ERROR "Unknown trace level '${TRACE_LEVEL}'")
+    endif()
+else()
+    add_definitions ("-DMBED_TRACE_MAX_LEVEL=TRACE_LEVEL_ERROR")
+endif()
+
+# Example application default configuration
+SET (CLIENT_EXAMPLE_REAPPEARING_THREAD_STACK_SIZE 131072)

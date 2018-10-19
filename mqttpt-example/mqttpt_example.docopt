@@ -1,0 +1,13 @@
+MQTT Protocol Translator Example.
+
+Usage:
+  mqttpt-example [--edge-domain-socket <domain-socket>] [--mosquitto-port <int>] [--mosquitto-host <hostname>] [--keep-alive <int>] [--color-log]
+  mqttpt-example --help
+
+Options:
+  -h --help                      Show this screen.
+  --edge-domain-socket <string>  Edge Core domain socket path [default: /tmp/edge.sock].
+  --mosquitto-port <int>         Mosquitto port number [default: 1883].
+  --mosquitto-host <string>      Mosquitto host address [default: 127.0.0.1].
+  --keep-alive <int>             Specify the keep-alive parameter in minutes [default: 60].
+  --color-log                    Use ANSI colors in log.

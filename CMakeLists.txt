@@ -1,0 +1,65 @@
+project ("mbed-edge-pt-examples" C)
+cmake_minimum_required (VERSION 2.8)
+
+SET (EXECUTABLE_OUTPUT_PATH ${PROJECT_BINARY_DIR}/bin)
+
+set (CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
+
+set (ROOT_HOME ${CMAKE_CURRENT_LIST_DIR})
+set (EDGE_SOURCES_DIR_NAME "mbed-edge")
+find_package (Threads REQUIRED)
+
+
+# Utility cmake functions
+# Use the ones in edge to avoid duplication
+include (lib/${EDGE_SOURCES_DIR_NAME}/cmake/common.cmake)
+
+# Mbed Edge basic configuration
+include (cmake/examples_configure.cmake)
+
+# Mbed Edge include directories
+include (cmake/examples_include_directories.cmake)
+
+
+add_subdirectory (examples-common)
+add_subdirectory (lib/${EDGE_SOURCES_DIR_NAME}/nano-stack)
+add_subdirectory (lib/${EDGE_SOURCES_DIR_NAME}/mbed-trace-edge)
+
+add_subdirectory (lib/${EDGE_SOURCES_DIR_NAME}/lib/jansson)
+add_library (jsonrpc STATIC lib/${EDGE_SOURCES_DIR_NAME}/lib/jsonrpc/jsonrpc.c)
+target_link_libraries(jsonrpc jansson)
+
+add_subdirectory (lib/${EDGE_SOURCES_DIR_NAME}/edge-rpc)
+add_subdirectory (lib/${EDGE_SOURCES_DIR_NAME}/pt-client)
+add_subdirectory (lib/${EDGE_SOURCES_DIR_NAME}/lib/libevent)
+add_subdirectory (lib/${EDGE_SOURCES_DIR_NAME}/lib/libwebsockets)
+add_subdirectory (pt-example)
+
+
+# Conditionally build mqtt-pt if mosquitto is available
+unset(MOSQUITTO_LIB CACHE)
+find_library(MOSQUITTO_LIB mosquitto)
+if (SKIP_LIB_CHECK OR MOSQUITTO_LIB)
+  add_subdirectory (mqttpt-example)
+else ()
+  message("Not building the mqtt protocol translator since mosquitto library was not found!")
+endif ()
+
+# Add doc target for building documentation with Doxygen
+find_package (Doxygen)
+option (BUILD_DOCUMENTATION "Create and install the HTML based API documentation (requires Doxygen)" ${DOXYGEN_FOUND})
+if (BUILD_DOCUMENTATION)
+    if (NOT DOXYGEN_FOUND)
+        message (FATAL_ERROR "Doxygen is needed to build the documentation.")
+    endif ()
+
+    set (doxyfile_in ${CMAKE_CURRENT_SOURCE_DIR}/Doxyfile.in)
+    set (doxyfile ${CMAKE_CURRENT_BINARY_DIR}/Doxyfile)
+    configure_file (${doxyfile_in} ${doxyfile} @ONLY)
+
+    add_custom_target (edge-examples-doc
+        COMMAND ${DOXYGEN_EXECUTABLE} ${doxyfile}
+        WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
+        COMMENT "Generating API documentation with Doxygen"
+        VERBATIM)
+endif ()

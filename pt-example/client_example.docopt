@@ -1,0 +1,12 @@
+Protocol Translator Example.
+
+Usage:
+  pt-example --protocol-translator-name <name> [--endpoint-postfix <name>] [--edge-domain-socket <domain-socket>] [--color-log]
+  pt-example --help
+
+Options:
+  -h --help                                 Show this screen.
+  -n --protocol-translator-name <name>      Name of the Protocol Translator.
+  -e --endpoint-postfix <postfix>           Name for the endpoint postfix [default: -0]
+  --edge-domain-socket <string>             Edge Core domain socket path [default: /tmp/edge.sock].
+  --color-log                               Use ANSI colors in log.

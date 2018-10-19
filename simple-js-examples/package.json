@@ -1,0 +1,16 @@
+{
+  "name": "simple-edge-api-examples",
+  "version": "0.6.0",
+  "description": "Simple Javascript Edge API examples",
+  "main": "",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "ARM Ltd.",
+  "license": "Apache-2.0",
+  "dependencies": {
+    "es6-promisify": "^6.0.0",
+    "json-rpc-ws": "^5.0.0",
+    "repl.history": "^0.1.4"
+  }
+}
