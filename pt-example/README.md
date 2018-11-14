@@ -51,6 +51,7 @@ $ ./pt-example -n pt-example
 On Mbed Cloud, you should see the mediated endpoints appear as new devices and
 they should have the sensors as resources, two temperature sensors and
 a thermostat sensor.
+NOTE: Your mediated endpoints may have different Device-ID prefixes. If you want to check your mediated endpoints result via Pelion Portal, please enable 'Registered only' filter in the 'Devices' section.
 
 The `pt-example` supports optional command-line parameters, see the help with:
 
