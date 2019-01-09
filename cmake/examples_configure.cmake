@@ -1,7 +1,15 @@
 if (NOT DEFINED TARGET_TOOLCHAIN)
     SET (TARGET_TOOLCHAIN "mcc-linux-x86")
+    include ("lib/${EDGE_SOURCES_DIR_NAME}/cmake/toolchains/${TARGET_TOOLCHAIN}.cmake")
 endif()
-include ("lib/${EDGE_SOURCES_DIR_NAME}/cmake/toolchains/${TARGET_TOOLCHAIN}.cmake")
+
+option (ENABLE_THREAD_SANITIZE "Compile and link with thread sanitizer" OFF)
+if (ENABLE_THREAD_SANITIZE)
+    message ("Enabling thread sanitizer")
+    SET (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -O0 -fsanitize=thread")
+    SET (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O0 -fsanitize=thread")
+    SET (CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -fsanitize=thread")
+endif ()
 
 if (DEFINED TRACE_LEVEL)
     if (${TRACE_LEVEL} STREQUAL "DEBUG")
@@ -19,5 +27,3 @@ else()
     add_definitions ("-DMBED_TRACE_MAX_LEVEL=TRACE_LEVEL_ERROR")
 endif()
 
-# Example application default configuration
-SET (CLIENT_EXAMPLE_REAPPEARING_THREAD_STACK_SIZE 131072)

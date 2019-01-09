@@ -66,7 +66,7 @@ EdgePTExample.prototype.connect = async function() {
 EdgePTExample.prototype.disconnect = async function() {
     let self = this;
     return new Promise((resolve, reject) => {
-        console.log(GREEN, 'Disconnecting from Mbed Edge.');
+        console.log(GREEN, 'Disconnecting from Edge.');
         self.client.disconnect((error, response) => {
             if (!error) {
                 resolve(response);
@@ -89,7 +89,7 @@ EdgePTExample.prototype.registerProtocolTranslator = async function() {
                 clearTimeout(timeout);
                 if (!error) {
                     // Connection ok. Set up to listen for write calls
-                    // from Mbed Edge Core.
+                    // from Edge Core.
                     self.exposeWriteMethod();
                     resolve(response);
                 } else {
@@ -99,7 +99,7 @@ EdgePTExample.prototype.registerProtocolTranslator = async function() {
     });
 };
 
-EdgePTExample.prototype._createDeviceParams = function(temperatureValue, setPointValue) {
+EdgePTExample.prototype._createDeviceParams = function(deviceId, temperatureValue, setPointValue) {
     // Values are always Base64 encoded strings.
     let temperature = Buffer.allocUnsafe(4);
     temperature.writeFloatBE(temperatureValue)
@@ -110,7 +110,7 @@ EdgePTExample.prototype._createDeviceParams = function(temperatureValue, setPoin
 
     // An IPSO/LwM2M temperature sensor and set point sensor (thermostat)
     params = {
-        deviceId: 'example-device-1',
+        deviceId: deviceId,
         objects: [{
             objectId: 3303,
             objectInstances: [{
@@ -138,12 +138,13 @@ EdgePTExample.prototype._createDeviceParams = function(temperatureValue, setPoin
     return params;
 }
 
-EdgePTExample.prototype.registerExampleDevice = async function() {
+EdgePTExample.prototype.registerExampleDevice = async function(deviceId) {
     let self = this;
     return new Promise((resolve, reject) => {
 
-        params = self._createDeviceParams(21.5 /* temp */,
-                                         23.5 /* set point */);
+        params = self._createDeviceParams(deviceId,
+                                          21.5 /* temp */,
+                                          23.5 /* set point */);
 
         let timeout = setTimeout(() => {
             reject('Timeout');
@@ -161,14 +162,14 @@ EdgePTExample.prototype.registerExampleDevice = async function() {
     });
 }
 
-EdgePTExample.prototype.unregisterExampleDevice = async function() {
+EdgePTExample.prototype.unregisterExampleDevice = async function(deviceId) {
     let self = this;
     return new Promise((resolve, reject) => {
         let timeout = setTimeout(() => {
             reject('Timeout');
         }, TIMEOUT);
 
-        self.client.send('device_unregister', {deviceId: 'example-device-1'},
+        self.client.send('device_unregister', {deviceId: deviceId},
             function(error, response) {
                 clearTimeout(timeout);
                 if (!error) {
@@ -181,11 +182,12 @@ EdgePTExample.prototype.unregisterExampleDevice = async function() {
 }
 
 
-EdgePTExample.prototype.updateExampleDeviceResources = async function() {
+EdgePTExample.prototype.updateExampleDeviceResources = async function(deviceId) {
     let self = this;
     return new Promise((resolve, reject) => {
 
-        params = self._createDeviceParams(19.5 /* temp */,
+        params = self._createDeviceParams(deviceId,
+                                          19.5 /* temp */,
                                           20.5 /* set point */);
 
         let timeout = setTimeout(() => {
@@ -232,10 +234,10 @@ EdgePTExample.prototype.exposeWriteMethod = function() {
         console.log(GREEN, 'The raw received JSONRPC 2.0 params:');
         console.log(params);
 
-        /* Always respond back to Mbed Edge, it is expecting
+        /* Always respond back to Edge, it is expecting
          * an success response to finish the write/execute action.
          * If an error is returned the value write is discarded
-         * also in the Mbed Edge Core.
+         * also in the Edge Core.
          */
         response(/* no error */ null, /* success */ 'ok');
     });
@@ -266,25 +268,25 @@ const holdProgress = async (message) => {
         });
 
         // For waiting user input for example progress
-        await holdProgress('Press any key to connect Mbed Edge.');
+        await holdProgress('Press any key to connect Edge.');
 
         await edge.connect();
-        console.log(GREEN, 'Connected to Mbed Cloud Edge');
+        console.log(GREEN, 'Connected to Edge');
 
         await holdProgress('Press any key to register as protocol translator.');
         let response = await edge.registerProtocolTranslator();
         console.log(GREEN, 'Registered as protocol translator. Response:', response);
 
         await holdProgress('Press any key to register the example device.');
-        response = await edge.registerExampleDevice();
+        response = await edge.registerExampleDevice('example-device-1');
         console.log(GREEN, 'Registered an example device. Response:', response);
 
         await holdProgress('Press any key to update example device values.');
-        response = await edge.updateExampleDeviceResources();
+        response = await edge.updateExampleDeviceResources('example-device-1');
         console.log(GREEN, 'Updated the resource values. Response:', response);
 
         await holdProgress('Press any key to unregister the example device.');
-        response = await edge.unregisterExampleDevice();
+        response = await edge.unregisterExampleDevice('example-device-1');
         console.log(GREEN, 'Example device unregistered. Response:', response);
 
         console.log(GREEN, 'Kill the example with Ctrl+C');

@@ -19,12 +19,7 @@
  */
 
 #include <pthread.h>
-#include <pt-client/pt_api.h>
+#include <pt-client-2/pt_api.h>
 
 void unregister_test_device();
-void device_registration_success(const char* device_id, void *userdata);
-void device_registration_failure(const char* device_id, void *userdata);
-void device_unregistration_success(const char* device_id, void *userdata);
-void device_unregistration_failure(const char* device_id, void *userdata);
-
-pt_device_t *create_device(const char *device_id_string);
+void create_device(const char *device_id_string);

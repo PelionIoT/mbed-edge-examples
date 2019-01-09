@@ -1,6 +1,6 @@
-# Mbed Edge Protocol Translator Examples
+# Edge Protocol Translator Examples
 
-This repository contains the Protocol Translator examples for the Mbed Edge.
+This repository contains the Protocol Translator examples for the Edge.
 
 ## pt-example
 
@@ -10,12 +10,12 @@ Pt-example is a basic example of the C-API and pt-client usage.
 
 `mqttpt-example` is an example of a protocol translator that connects to endpoints using MQTT. It can be used
 without real MQTT hardware using provided Mosquitto MQTT simulator scripts. The endpoints may
-publish for example temperature and humidity values to Mbed Cloud.
+publish for example temperature and humidity values to Device Management.
 
 ## simple-js-examples
 
 The `simple-js-examples` are different from the rest of the examples. Instead of using the provided `pt-client`
-library these examples use Mbed Edge Core protocol translator and management API directly.
+library these examples use Edge Core protocol translator and management API directly.
 
 These are examples on how a protocol translator or management API application can be created using Javascript.
 See the [simple-js-examples/README.md](simple-js-examples/README.md) for instructions.
@@ -61,14 +61,16 @@ To make all examples with debug information and debug trace level, run
 $ make build-all-examples-debug
 ```
 
-or just
-```
-$ make
-```
-
 It will build the examples to `build-debug/bin` directory.
 
-Running `make all` will generate both `build` and `build-debug` directories.
+To make all examples with ThreadSanitizer and debug trace level, run
+```
+$ make build-all-examples-sanitize
+```
+
+It will build the examples to `build-sanitize/bin` directory.
+
+Running `make all` will generate `build`, `build-debug` and `build-sanitize` directories.
 
 Please note following:
 mqttpt-example will not be built if the libmosquitto is not installed.

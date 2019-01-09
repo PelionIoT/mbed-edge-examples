@@ -67,7 +67,7 @@ EdgeMgmtExample.prototype.connect = async function(apiPath='/1/mgmt',
 EdgeMgmtExample.prototype.disconnect = async function() {
     let self = this;
     return new Promise((resolve, reject) => {
-        console.log(GREEN, 'Disconnecting from Mbed Edge.');
+        console.log(GREEN, 'Disconnecting from Edge.');
         self.client.disconnect((error, response) => {
             if (!error) {
                 resolve(response);
@@ -169,7 +169,7 @@ const runPrompt = async (edge) => {
         replServer.context.connect = async function(apiPath, socketPath) {
             edge.connect(apiPath, socketPath)
                 .then(function(response) {
-                    console.log(GREEN, 'Connected to Mbed Edge');
+                    console.log(GREEN, 'Connected to Edge');
                 }, function (reject) {
                     console.log(RED, 'Error: ', reject);
                 });

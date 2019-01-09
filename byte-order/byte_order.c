@@ -19,11 +19,10 @@
  */
 
 #include <arpa/inet.h>
-#include <inttypes.h>
 #include <string.h>
-#include "examples-common/byte_order.h"
+#include "byte-order/byte_order.h"
 
-void convert_value_to_host_order_float(uint8_t *value, float *float_value)
+void convert_value_to_host_order_float(const uint8_t *value, float *float_value)
 {
     uint32_t temp_value;
     memcpy(&temp_value, value, sizeof(float));
@@ -31,7 +30,7 @@ void convert_value_to_host_order_float(uint8_t *value, float *float_value)
     memcpy(float_value, &temp_value, sizeof(float));
 }
 
-void convert_float_value_to_network_byte_order(float value, uint8_t *buffer)
+void convert_float_value_to_network_byte_order(const float value, uint8_t *buffer)
 {
     uint32_t temp_value;
     memcpy(&temp_value, &value, sizeof(float));

@@ -25,7 +25,7 @@
 #include <string.h>
 #include <unistd.h>
 
-#include "examples-common/thermal_zone.h"
+#include "device-interface/thermal_zone.h"
 #include "common/read_file.h"
 #include "mbed-trace/mbed_trace.h"
 
@@ -102,7 +102,7 @@ float tzone_read_cpu_temperature()
                 free(buffer);
             }
 
-            tr_err("Could not read bytes from thermal zone temperature file, returning random temperature between 20 "
+            tr_err("Could not read bytes from thermal zone temperature file, returning a random temperature between 20 "
                    "and 100 - %f.",
                    rand_temp);
             return rand_temp;

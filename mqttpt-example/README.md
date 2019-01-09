@@ -4,7 +4,7 @@
 translator for MQTT endpoints. Do not use for production implementation.</span>
 
 A very simple protocol translator example for the MQTT Gateway.
-The example translates MQTT endpoints connected to Mbed Cloud via Edge Core.
+The example translates MQTT endpoints connected to Device Management via Edge Core.
 
 #### Dependencies
 
@@ -58,7 +58,7 @@ Start the mqttpt-example:
 $ mqttpt-example
 ```
 
-On Mbed Cloud, you should see the MQTT endpoints appear as new devices and they
+On Device Management, you should see the MQTT endpoints appear as new devices and they
 should have the sensors as resources (temperature as /3303/0/5700 and humidity
 as /3304/0/5700).
 

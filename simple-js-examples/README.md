@@ -3,7 +3,7 @@
 ## simple-pt-example.js
 
 This example protocol translator shows the calls and parameters to pass to
-Mbed Edge Core protocol translator API. The websocket connection and
+Edge Core protocol translator API. The websocket connection and
 JSONRPC 2.0 specification and communication is left out of the scope to
 keep the example simple.
 
@@ -11,12 +11,12 @@ Libraries are used to handle the websocket and JSONRPC 2.0 communication.
 
 Please study the example code to see how to use the protocol translator
 JSONRPC 2.0 API and read the relevant documentation for Edge APIs from
-[Mbed Cloud Docs](https://cloud.mbed.com/docs/current).
+[Device Management Docs](https://cloud.mbed.com/docs/current).
 
 ## simple-mgmt-example.js
 
 This example management application demostrates the calls and parameters to pass
-to Mbed Edge core management API. The websocket connection and JSONRPC 2.0
+to Edge core management API. The websocket connection and JSONRPC 2.0
 specification and communciation is left out of the scope to keep the
 example simple.
 
@@ -28,7 +28,7 @@ Libraries are used to handle the websocket and JSONRPC 2.0 communication.
 
 Please study the example code to see how to use the management JSONRPC 2.0
 API and read the relevant documentation for Edge APIs from
-[Mbed Cloud Docs](https://cloud.mbed.com/docs/current).
+[Device Management Docs](https://cloud.mbed.com/docs/current).
 
 ## Dependencies
 
@@ -69,13 +69,13 @@ Fixed values for the example:
 
 1. Run the Edge Core
    See the pre-requisites to build and run from the root [README.md](./README.md)
-1. Verify that Mbed Edge device is connected to Mbed Cloud and visible
-   from [Mbed Portal](https://portal.mbedcloud.com)
-1. Run this example and connect to Mbed Edge.
+1. Verify that Edge device is connected to Device Management and visible
+   from [Device Management Portal](https://portal.mbedcloud.com)
+1. Run this example and connect to Edge.
    ```bash
    $ nodejs simple-pt-example.js
    ```
-1. Monitor the registered Edge and endpoint device from Mbed Portal.
+1. Monitor the registered Edge and endpoint device from Device Management Portal.
 
 ## Running the management API example
 
@@ -83,16 +83,16 @@ Fixed values for the example:
 
 1. Run the Edge Core
    See the pre-requisites to build and run from the root [README.md](./README.md)
-1. Verify that Mbed Edge device is connected to Mbed Cloud and visible
-   from [Mbed Portal](https://portal.mbedcloud.com)
-1. Connect a protocol translator and some devices to Mbed Edge.
+1. Verify that Edge device is connected to Device Management and visible
+   from [Device Management Portal](https://portal.mbedcloud.com)
+1. Connect a protocol translator and some devices to Edge.
    For example one of the protocol translator examples provided from
-   [Mbed Edge examples](https://github.com/ARMmbed/mbed-edge-examples).
-1. Run this example and connect to Mbed Edge.
+   [Edge examples](https://github.com/ARMmbed/mbed-edge-examples).
+1. Run this example and connect to Edge.
    ```bash
    $ nodejs simple-mgmt-example.js
    ```
 1. Use the `connect()` function provided by the interactive example to connect
-   to the Mbed Edge Core.
+   to the Edge Core.
 1. After successful connection you can query devices from Edge Core with `devices()` function.
 1. See the example application help for other functions.

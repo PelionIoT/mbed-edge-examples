@@ -25,7 +25,7 @@
 #include "pt-client/pt_device_object.h"
 #include "examples-common/client_config.h"
 #include "examples-common/ipso_objects.h"
-#include "examples-common/thermal_zone.h"
+#include "device-interface/thermal_zone.h"
 #include "mbed-trace/mbed_trace.h"
 #include <stdio.h>
 #define TRACE_GROUP "clnt-example"
@@ -54,17 +54,20 @@ pt_device_t *client_config_create_device(const char *device_id, const char *endp
     return client_config_create_device_with_userdata(device_id, endpoint_postfix, NULL);
 }
 
-static void client_config_example_reboot_callback(const pt_resource_opaque_t *resource, const uint8_t* value, const uint32_t value_length, void *userdata)
+static void client_config_example_reboot_callback(const pt_resource_t *resource,
+                                                  const uint8_t *value,
+                                                  const uint32_t value_length,
+                                                  void *userdata)
 {
     tr_info("Example /3 device reboot resource executed.");
 }
 
-void client_config_blink_callback(const pt_resource_opaque_t *resource, const uint8_t *value, const uint32_t size, void* userdata)
+void client_config_blink_callback(const pt_resource_t *resource, const uint8_t *value, const uint32_t size, void* userdata)
 {
     tr_info("blink_callback,  value %s", value);
 }
 
-void client_config_upgrade_callback(const pt_resource_opaque_t *resource, const uint8_t *value, const uint32_t size, void* userdata)
+void client_config_upgrade_callback(const pt_resource_t *resource, const uint8_t *value, const uint32_t size, void* userdata)
 {
     tr_info("upgrade_callback,  value %s", value);
 }

@@ -1,4 +1,4 @@
-project ("mbed-edge-pt-examples" C)
+project ("edge-pt-examples" C)
 cmake_minimum_required (VERSION 2.8)
 
 SET (EXECUTABLE_OUTPUT_PATH ${PROJECT_BINARY_DIR}/bin)
@@ -9,19 +9,21 @@ set (ROOT_HOME ${CMAKE_CURRENT_LIST_DIR})
 set (EDGE_SOURCES_DIR_NAME "mbed-edge")
 find_package (Threads REQUIRED)
 
-
 # Utility cmake functions
 # Use the ones in edge to avoid duplication
 include (lib/${EDGE_SOURCES_DIR_NAME}/cmake/common.cmake)
 
-# Mbed Edge basic configuration
+# Edge basic configuration
 include (cmake/examples_configure.cmake)
 
-# Mbed Edge include directories
+# Edge include directories
 include (cmake/examples_include_directories.cmake)
 
 
 add_subdirectory (examples-common)
+add_subdirectory (examples-common-2)
+add_subdirectory (device-interface)
+add_subdirectory (byte-order)
 add_subdirectory (lib/${EDGE_SOURCES_DIR_NAME}/nano-stack)
 add_subdirectory (lib/${EDGE_SOURCES_DIR_NAME}/mbed-trace-edge)
 
@@ -29,12 +31,22 @@ add_subdirectory (lib/${EDGE_SOURCES_DIR_NAME}/lib/jansson)
 add_library (jsonrpc STATIC lib/${EDGE_SOURCES_DIR_NAME}/lib/jsonrpc/jsonrpc.c)
 target_link_libraries(jsonrpc jansson)
 
+add_subdirectory (lib/${EDGE_SOURCES_DIR_NAME}/common)
 add_subdirectory (lib/${EDGE_SOURCES_DIR_NAME}/edge-rpc)
 add_subdirectory (lib/${EDGE_SOURCES_DIR_NAME}/pt-client)
+add_subdirectory (lib/${EDGE_SOURCES_DIR_NAME}/pt-client-2)
 add_subdirectory (lib/${EDGE_SOURCES_DIR_NAME}/lib/libevent)
 add_subdirectory (lib/${EDGE_SOURCES_DIR_NAME}/lib/libwebsockets)
 add_subdirectory (pt-example)
 
+# Conditionally build ble-pt if glib-2.0 is available
+unset(GLIB2_LIBRARIES CACHE)
+find_library(GLIB2_LIBRARIES glib-2.0)
+if (SKIP_LIB_CHECK OR GLIB2_LIBRARIES)
+  add_subdirectory (blept-example)
+else ()
+  message("Not building the bluetooth example, glib-2.0 library was not found!")
+endif ()
 
 # Conditionally build mqtt-pt if mosquitto is available
 unset(MOSQUITTO_LIB CACHE)

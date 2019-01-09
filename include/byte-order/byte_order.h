@@ -18,7 +18,8 @@
  * ----------------------------------------------------------------------------
  */
 
+#include <inttypes.h>
 
-void convert_value_to_host_order_float(uint8_t *value, float *float_value);
+void convert_value_to_host_order_float(const uint8_t *value, float *float_value);
 
-void convert_float_value_to_network_byte_order(float value, uint8_t *buffer);
+void convert_float_value_to_network_byte_order(const float value, uint8_t *buffer);
