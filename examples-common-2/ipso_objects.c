@@ -47,7 +47,7 @@ void ipso_add_min_max_fields(connection_id_t connection_id,
     }
     convert_float_value_to_network_byte_order(min_default, min_default_data);
 
-    float max_default = FLT_MIN; // Set maximum measured on default to min float
+    float max_default = -FLT_MAX; // Set maximum measured on default to min float
     uint8_t *max_default_data = malloc(sizeof(float));
     if (max_default_data == NULL) {
         tr_err("Could not allocate max_default_data");
@@ -300,7 +300,7 @@ pt_status_t ipso_reset_min_max_object(const connection_id_t connection_id,
                                  sizeof(float),
                                  free);
 
-    float max_default = FLT_MIN; // Set maximum measured on reset to min float
+    float max_default = -FLT_MAX; // Set maximum measured on reset to min float
     uint8_t *max_default_data = malloc(sizeof(float));
     if (max_default_data == NULL) {
         tr_err("Could not get resource value buffer");

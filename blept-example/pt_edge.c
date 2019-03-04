@@ -20,6 +20,7 @@
 #include <assert.h>
 #include <string.h>
 
+#include <pthread.h>
 #include "mbed-trace/mbed_trace.h"
 #include "pt_edge.h"
 #include "pt_ble.h"
@@ -35,6 +36,8 @@ pthread_t protocol_translator_api_thread;
 connection_id_t g_connection_id = PT_API_CONNECTION_ID_INVALID;
 pt_client_t *g_client = NULL;
 bool unregistering_devices = false;
+pthread_mutex_t pt_api_start_wait_mutex = PTHREAD_MUTEX_INITIALIZER;
+pthread_cond_t pt_api_start_wait_cond = PTHREAD_COND_INITIALIZER;
 
 void shutdown_and_cleanup();
 static pt_status_t resource_callback_handler(const connection_id_t connection_id,
@@ -97,7 +100,6 @@ edge_add_resource(const char *device_id,
     return true;
 
 err:
-    free(buf);
     tr_err("Could not create resource %s/%d/%d/%d ",
            device_id, object_id, instance_id, resource_id);
     return false;
@@ -149,7 +151,7 @@ static pt_status_t resource_callback_handler(const connection_id_t connection_id
 
     tr_info("Edge resource callback.");
 
-    ble = devices_find_device(device_id);
+    ble = devices_find_device_by_device_id(device_id);
     if (NULL == ble) {
         tr_warn("No match for device \"%s/%d/%d/%d\".",
                 device_id, object_id, instance_id, resource_id);
@@ -178,27 +180,43 @@ out:
     return status;
 }
 
-static gboolean device_unregistered(gpointer device_id)
+typedef struct {
+    char *device_id;
+    bool delete_context;
+} unregistered_message_t;
+
+void pt_edge_del_device(struct ble_device *ble)
 {
-    assert(device_id != NULL);
-
-    devices_mutex_lock();
-
-    // Remove the device and clean up any allocated data
-    struct ble_device *ble = devices_find_device((char *)device_id);
-    free(device_id);
-
-    if (NULL != ble) {
-        devices_del_device(ble);
-    }
-
+    assert(NULL != ble);
+    devices_del_device(ble);
     if (unregistering_devices) {
         // If unregistering all devices, check if this was last one and inform ble eventloop
         // handler if every device has been unregistered
         if (ns_list_count(devices_get_list()) == 0) {
             g_idle_add(pt_ble_g_main_quit_loop, NULL);
         }
+    }
+}
 
+static gboolean device_unregistered(gpointer unregistered_message_p)
+{
+    unregistered_message_t *unregistered_message = (unregistered_message_t *) unregistered_message_p;
+    char *device_id = unregistered_message->device_id;
+    bool delete_context = unregistered_message->delete_context;
+    assert(device_id != NULL);
+
+    devices_mutex_lock();
+
+    // Remove the device and clean up any allocated data
+    struct ble_device *ble = devices_find_device_by_device_id((char *) device_id);
+    free(device_id);
+    free(unregistered_message);
+    if (NULL != ble) {
+        if (delete_context) {
+            pt_edge_del_device(ble);
+        } else {
+            device_set_registered(ble, false);
+        }
     }
 
     devices_mutex_unlock();
@@ -215,15 +233,14 @@ static gboolean device_unregistered(gpointer device_id)
  * a worker thread. If the process runs directly in the callback, it
  * blocks the event loop and thus, blocks the protocol translator.
  *
- * \param device_id The device id from context from the `pt_unregister_device()` call.
- * \param userdata The user supplied context from the `pt_unregister_device()` call.
+ * \param connection_id The ID of the connection to Edge.
+ * \param device_id The device ID from context from the `pt_unregister_device()` call.
+ * \param userdata Pointer to `unregistered_message_t` structure.
  */
 static void device_unregistration_success(const connection_id_t connection_id, const char* device_id, void *userdata)
 {
-    assert(userdata == NULL);
-
     tr_info("Device unregistration successful for %s", device_id);
-    g_idle_add(device_unregistered, (gpointer)strdup(device_id));
+    g_idle_add(device_unregistered, userdata);
 }
 
 /**
@@ -235,15 +252,14 @@ static void device_unregistration_success(const connection_id_t connection_id, c
  * a worker thread. If the process runs directly in the callback, it
  * blocks the event loop and thus, blocks the protocol translator.
  *
- * \param device_id The device id from context from the `pt_unregister_device()` call.
- * \param userdata The user supplied context from the `pt_unregister_device()` call.
+ * \param connection_id The ID of the connection to Edge.
+ * \param device_id The device ID from context from the `pt_unregister_device()` call.
+ * \param userdata Pointer to `unregistered_message_t` structure.
  */
 static void device_unregistration_failure(const connection_id_t connection_id, const char* device_id, void *userdata)
 {
-    assert(userdata == NULL);
-
     tr_info("Device unregistration failed for %s", device_id);
-    g_idle_add(device_unregistered, (gpointer)strdup(device_id));
+    g_idle_add(device_unregistered, userdata);
 }
 
 /**
@@ -264,7 +280,14 @@ void unregister_devices()
             // Unregister each device, after the last device unregistration has finished
             // we can close
             ns_list_foreach_safe(struct ble_device, dev, list) {
-                edge_unregister_device(dev);
+                ble_remove_device(dev);
+            }
+
+            // All non-registered devices will be removed by edge_unregister_device, so
+            // check if the list is already empty at this point, in which case we can
+            // initiate the glib event loop shutdown
+            if (ns_list_count(list) == 0) {
+                g_idle_add(pt_ble_g_main_quit_loop, NULL);
             }
         }
     }
@@ -279,7 +302,7 @@ void unregister_devices()
  * to a worker thread. If the process runs directly in the callback, it
  * blocks the event loop and thus, blocks the protocol translator.
  *
- * \param connection_id The connection id from context from the `pt_devices_update()` call.
+ * \param connection_id The connection ID from context from the `pt_devices_update()` call.
  * \param userdata The user-supplied context from the `pt_devices_update()` call.
  */
 static void device_write_values_success_handler(connection_id_t connection_id, const char *device_id, void *userdata)
@@ -298,7 +321,7 @@ static void device_write_values_success_handler(connection_id_t connection_id, c
  * to a worker thread. If the process runs directly in the callback, it
  * blocks the event loop and thus, blocks the protocol translator.
  *
- * \param connection_id The connection id from context from the `pt_devices_update()` call.
+ * \param connection_id The connection ID from context from the `pt_devices_update()` call.
  * \param userdata The user-supplied context from the `pt_devices_update()` call.
  */
 static void device_write_values_failure_handler(connection_id_t connection_id, const char *device_id, void *userdata)
@@ -313,10 +336,9 @@ static gboolean device_registered(gpointer device_id)
 {
     assert(device_id != NULL);
     devices_mutex_lock();
-    struct ble_device* ble = devices_find_device(device_id);
+    struct ble_device *ble = devices_find_device_by_device_id(device_id);
     if (ble != NULL) {
-        device_set_registered(ble, 1);
-        assert(device_is_registered(ble));
+        device_set_registered(ble, true);
     }
     else {
         tr_error("Received registration event for unknown device id: %s",
@@ -338,8 +360,8 @@ static gboolean device_registered(gpointer device_id)
  * to move it a worker thread. If the process runs directly in the callback, it
  * blocks the event loop and thus, blocks the protocol translator.
  *
- * \param device_id The device id from context from pt_register_device()
- * \param pt_dev The device that was registered.
+ * \param connection_id The ID of the connection to Edge.
+ * \param device_id The device ID from context from pt_register_device()
  * \param userdata The user-supplied context from pt_register_device()
  */
 static void device_registration_success(const connection_id_t connection_id, const char* device_id, void *userdata)
@@ -362,8 +384,8 @@ static void device_registration_success(const connection_id_t connection_id, con
  * move it to a worker thread. If the process runs directly in the callback, it
  * blocks the event loop and thus, blocks the protocol translator.
  *
- * \param device_id The device id provided to pt_register_device().
- * \param pt_dev The device that was registered.
+ * \param connection_id The ID of the connection to Edge.
+ * \param device_id The device ID provided to pt_register_device().
  * \param userdata The user-supplied context provided to pt_register_device().
  */
 static void device_registration_failure(const connection_id_t connection_id, const char* device_id, void *userdata)
@@ -371,6 +393,8 @@ static void device_registration_failure(const connection_id_t connection_id, con
     (void)device_id;
     (void)userdata;
     tr_info("Device registration failed for device '%s'", device_id);
+    pthread_cond_signal(&pt_api_start_wait_cond);
+    pthread_mutex_unlock(&pt_api_start_wait_mutex);
 }
 
 /**
@@ -390,6 +414,8 @@ static void protocol_translator_registration_success(void *userdata)
     (void)userdata;
 
     tr_info("PT registration successful");
+    pthread_cond_signal(&pt_api_start_wait_cond);
+    pthread_mutex_unlock(&pt_api_start_wait_mutex);
 
     devices_mutex_lock();
     ns_list_foreach_safe(struct ble_device, dev, devices_get_list()) {
@@ -415,7 +441,7 @@ static void protocol_translator_registration_failure(void *userdata)
 
     tr_info("PT registration failure, customer code");
     global_keep_running = 0;
-    shutdown_and_cleanup();
+    g_idle_add(pt_ble_graceful_shutdown, NULL);
 }
 
 /**
@@ -428,7 +454,7 @@ static void protocol_translator_registration_failure(void *userdata)
  * a worker thread. If the process runs directly in the callback, it
  * blocks the event loop and thus, blocks the protocol translator.
  *
- * \param connection_id The id of the connection which is ready.
+ * \param connection_id The ID of the connection which is ready.
  * \param name The name of the protocol translator.
  * \param userdata The user supplied context from the `pt_register_protocol_translator()` call.
  */
@@ -451,7 +477,7 @@ static void connection_ready_handler(connection_id_t connection_id, const char *
  * a worker thread. If the process runs directly in the callback, it
  * blocks the event loop and thus, blocks the protocol translator.
  *
- * \param connection_id The id of the connection which is ready.
+ * \param connection_id The ID of the connection which is ready.
  * \param userdata The user supplied context from the `pt_register_protocol_translator()` call.
  */
 static void disconnected_handler(connection_id_t connection_id, void *userdata)
@@ -471,7 +497,7 @@ static void disconnected_handler(connection_id_t connection_id, void *userdata)
  * \param connection The connection of the using application.
  * \param userdata The original userdata from the application.
  *
- * \param connection_id The id of the connection which is closing down.
+ * \param connection_id The ID of the connection which is closing down.
  * \param userdata The user supplied context from the `pt_register_protocol_translator()` call.
  */
 static void shutdown_cb_handler(connection_id_t connection_id, void *userdata)
@@ -486,7 +512,7 @@ static void shutdown_cb_handler(connection_id_t connection_id, void *userdata)
         return;
     }
     global_keep_running = 0; // Close main thread
-    shutdown_and_cleanup();
+    g_idle_add(pt_ble_graceful_shutdown, NULL);
 }
 
 /**
@@ -512,8 +538,10 @@ static void *protocol_translator_api_start_func(void *ctx)
     pt_cbs.disconnected_cb = disconnected_handler;
     pt_cbs.connection_shutdown_cb = shutdown_cb_handler;
 
+    pthread_mutex_lock(&pt_api_start_wait_mutex);
     g_client = pt_client_create(pt_start_ctx->socket_path,
                                 &pt_cbs);
+
     if (g_client == NULL) {
         tr_error("Could not create protocol translator client!");
         global_keep_running = 0;
@@ -550,6 +578,11 @@ start_protocol_translator_api(protocol_translator_api_start_ctx_t *ctx)
  */
 void stop_protocol_translator_api()
 {
+    pthread_mutex_lock(&pt_api_start_wait_mutex);
+    if (NULL == g_client) {
+        pthread_cond_wait(&pt_api_start_wait_cond, &pt_api_start_wait_mutex);
+    }
+    pthread_mutex_unlock(&pt_api_start_wait_mutex);
     pt_client_shutdown(g_client);
 }
 
@@ -579,6 +612,10 @@ bool edge_create_device(const char *device_id,
 {
     pt_status_t status = pt_device_create(g_connection_id, device_id, lifetime, QUEUE);
     if (status != PT_STATUS_SUCCESS) {
+        if (status == PT_STATUS_ITEM_EXISTS) {
+            tr_debug("Device %s already exists", device_id);
+            return true;
+        }
         tr_err("Could not allocate device structure. (status %d)", status);
         return false;
     }
@@ -608,23 +645,36 @@ void edge_register_device(const char *device_id)
                                             device_registration_failure,
                                             NULL);
     if (PT_STATUS_SUCCESS != status) {
-        tr_err("failed to register device %s", device_id);
+        tr_err("failed to register device: '%s' status: %d", device_id, status);
     }
 }
 
-void edge_unregister_device(struct ble_device *dev)
+// Returns true if the call succeeded and false otherwise.
+bool edge_unregister_device(struct ble_device *dev, bool remove_device_context)
 {
-    tr_info("Unregistering device: %s", dev->device_id);
-    pt_status_t status = pt_device_unregister(g_connection_id,
-                                              dev->device_id,
-                                              device_unregistration_success,
-                                              device_unregistration_failure,
-                                              NULL /* userdata */);
-    tr_debug("status was %d", status);
-    if (PT_STATUS_SUCCESS != status) {
-        /* Error happened, remove device forcefully */
-        devices_del_device(dev);
+    tr_info("Unregistering device: '%s'", dev->device_id);
+    if (pt_device_exists(g_connection_id, dev->device_id)) {
+        pt_status_t status;
+        unregistered_message_t *unregistered_message = calloc(1, sizeof(unregistered_message_t));
+        unregistered_message->device_id = strdup(dev->device_id);
+        unregistered_message->delete_context = remove_device_context;
+
+        status = pt_device_unregister(g_connection_id,
+                                      dev->device_id,
+                                      device_unregistration_success,
+                                      device_unregistration_failure,
+                                      unregistered_message /* userdata */);
+        tr_debug("status was %d", status);
+        if (PT_STATUS_SUCCESS == status) {
+            return true;
+        } else {
+            free(unregistered_message->device_id);
+            free(unregistered_message);
+        }
+    } else {
+        tr_warn("    Device: '%s' doesn't exist", dev->device_id);
     }
+    return false;
 }
 
 connection_id_t edge_get_connection_id()

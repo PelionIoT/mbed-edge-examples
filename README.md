@@ -12,6 +12,10 @@ Pt-example is a basic example of the C-API and pt-client usage.
 without real MQTT hardware using provided Mosquitto MQTT simulator scripts. The endpoints may
 publish for example temperature and humidity values to Device Management.
 
+## blept-example
+
+The `blept-example` is a protocol translator reference implementation for use with Bluetooth Low Energy (BLE) devices that implement a Bluetooth Low Energy Generic Attributes (GATT) server. It connects to BLE devices and translates their GATT services and characteristics into Open Mobile Alliance (OMA) Lightweight Machine to Machine (LwM2M) Objects and Resources.
+
 ## simple-js-examples
 
 The `simple-js-examples` are different from the rest of the examples. Instead of using the provided `pt-client`

@@ -1,4 +1,5 @@
 include_directories (include)
+include_directories (config)
 include_directories (lib/${EDGE_SOURCES_DIR_NAME}/include)
 include_directories (lib/${EDGE_SOURCES_DIR_NAME}/common)
 

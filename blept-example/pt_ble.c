@@ -30,12 +30,15 @@
 #include <unistd.h>
 #include <getopt.h>
 #include <glib.h>
+#include <glib-unix.h>
 #include <gio/gio.h>
 #include <fcntl.h>
 #include <termios.h>
 #include <signal.h>
 #include <string.h>
 #include <stdio.h>
+#include "common/read_file.h"
+#include "jansson.h"
 
 #include "pt_ble_translations.h"
 
@@ -52,18 +55,31 @@
 #define OBJ_PATH_GAS "/service000c/char000d"
 #define OBJ_PATH_HUMIDITY "/service000f/char0010"
 #define OBJ_PATH_TEMPERATURE "/service000f/char0014"
-#define BLE_DEV "BLE_DEV"
-#define BLE_DISCOVERY_TIME 3
+#define BLE_DEV "BLE"
 #define BLE_DEVICE_ADDRESS_SIZE 18
 #define BLE_DEVICE_NAME_MAX_LENGTH 33
 #define MAX_PATH_LENGTH 256
 #define MAX_VALUE_STRING_LENGHT 10
 #define TRACE_GROUP "BLE"
 #define BLE_VALUE_READ_INTERVAL 5000
-
+#define BLE_RETRY_SLEEP_TIME_INITIAL_SECS 4
+#define BLE_MAX_BACK_OFF_TIME_SECS 300 // After this the device gets unregistered
+#define BLE_SLEEP_TIME_MULTIPLIER 2
+#define MAX_CONNECTION_RETRY_TIME_SECONDS (3600 * 24)
+#define BLE_MAX_CONNECTION_RETRIES 10000             // some upper limit just to prevent integer overflow
+#define EXPERIMENTAL_ADVERTISEMENT_SUPPORT_ENABLED 0 // the feature is not ready yet.
+#define BLUEZ_RECONNECT_RETRY_TIME_SECONDS 3         // Connection retry is tried in case the bluetooth daemon dies.
 // ============================================================================
 // Global Variables
 // ============================================================================
+
+typedef struct device_conf_entry {
+    ns_list_link_t link;
+    char *name;
+    bool partial_match;
+} device_conf_entry_t;
+
+typedef NS_LIST_HEAD(device_conf_entry_t, link) device_conf_list_t;
 
 static struct config {
     const char *postfix;
@@ -72,17 +88,46 @@ static struct config {
     GMainLoop *g_loop;
     GDBusConnection *connection;
     char bluez_hci_path[64];
-    bool extended_discovery_mode;
+    device_conf_list_t *white_list_entries;
+    int service_based_discovery;
 } g_config;
 
 // ============================================================================
 // Static functions
 // ============================================================================
 static void ble_discover_characteristics(struct ble_device *ble_dev);
+static void ble_proxy_connect(GDBusProxy *devProxy);
+static void ble_start_reconnection_timer_or_unregister_device(struct ble_device *ble_dev);
+static void device_conf_list_free(device_conf_list_t *list);
 
 // ============================================================================
 // Code
 // ============================================================================
+
+
+/**
+ * \brief Set up the signal handlers through GLib for catching signals from OS.
+ * This signal handler setup catches SIGTERM and SIGINT for shutting down
+ * the protocol translator client gracefully through an event handler in glib.
+ * In debug mode also SIGUSR2 is setup for shutting down for debugging purposes.
+ */
+bool pt_ble_setup_signals(void)
+{
+    if (g_unix_signal_add(SIGTERM, pt_ble_graceful_shutdown, (gpointer)SIGTERM) == 0) {
+        return false;
+    }
+    if (g_unix_signal_add(SIGINT, pt_ble_graceful_shutdown, (gpointer)SIGINT) == 0) {
+        return false;
+    }
+#ifdef DEBUG
+    tr_info("Setting support for SIGUSR2");
+    if (g_unix_signal_add(SIGUSR2, pt_ble_graceful_shutdown, (gpointer)SIGUSR2) == 0) {
+        return false;
+    }
+#endif
+    return true;
+}
+
 
 static bool ble_device_is_connected(GDBusProxy *proxy)
 {
@@ -194,19 +239,20 @@ GVariant* ble_get_property(const char *dbus_path, const char *dbus_interface, co
                                               NULL,
                                               &gerr);
 
+    GVariant *ret = NULL;
     if (result == NULL) {
         tr_debug("Error when reading property, %s (code %d)", gerr->message, gerr->code);
         g_clear_error(&gerr);
+    } else {
+
+        // result should be tuple with first item being the actual property value
+        g_variant_get(result, "(v)", &ret);
+
+        // Get reference to the variant so that we can unref the result tuple
+        ret = g_variant_ref(ret);
+
+        g_variant_unref(result);
     }
-
-    // result should be tuple with first item being the actual property value
-    GVariant *ret;
-    g_variant_get(result, "(v)", &ret);
-
-    // Get reference to the variant so that we can unref the result tuple
-    ret = g_variant_ref(ret);
-
-    g_variant_unref(result);
     g_object_unref(proxy);
 
     return ret;
@@ -306,12 +352,19 @@ out:
     return ret;
 }
 
+static struct ble_device *ble_find_device_from_address(const gchar *bt_address)
+{
+    struct ble_device *ble_dev = NULL;
+    char ble_device_id[BLE_DEVICE_NAME_MAX_LENGTH] = {0};
+    devices_make_device_id(ble_device_id, sizeof(ble_device_id), BLE_DEV, bt_address, g_config.postfix);
+    ble_dev = devices_find_device_by_device_id(ble_device_id);
+    return ble_dev;
+}
 
 // Tries to find a device based on a proxy.  Can return NULL.
 static struct ble_device *ble_find_device_from_proxy(GDBusProxy *proxy)
 {
-    char ble_device_id[BLE_DEVICE_NAME_MAX_LENGTH] = {0};
-    char bt_address[BLE_DEVICE_ADDRESS_SIZE] = {0};
+    gchar bt_address[BLE_DEVICE_ADDRESS_SIZE] = {0};
     struct ble_device *ble_dev = NULL;
 
     assert(proxy != NULL);
@@ -324,9 +377,7 @@ static struct ble_device *ble_find_device_from_proxy(GDBusProxy *proxy)
     if (ble_device_proxy_get_address(bt_address, sizeof bt_address, proxy) != 0) {
         goto out;
     }
-    devices_make_device_id(ble_device_id, sizeof(ble_device_id), BLE_DEV, bt_address, g_config.postfix);
-
-    ble_dev = devices_find_device(ble_device_id);
+    ble_dev = ble_find_device_from_address(bt_address);
 
 out:
     return ble_dev;
@@ -339,12 +390,10 @@ static void ble_remove_device_done(GObject *source_object,
     GDBusProxy *proxy;
     GVariant *ret;
     GError *err = NULL;
-    struct ble_device *ble_dev = user_data;
+    struct ble_device *ble_dev = NULL;
 
     tr_debug("--> ble_remove_device_done");
 
-    (void)user_data;
-    assert(ble_dev != NULL);
     assert(source_object != NULL);
     proxy = (GDBusProxy *)source_object;
     assert(G_IS_DBUS_PROXY(proxy));
@@ -355,22 +404,32 @@ static void ble_remove_device_done(GObject *source_object,
         g_variant_unref(ret);
     } else {
         assert(ret == NULL);
-        tr_err("    Failed to remove device: %s, %d.", err->message, err->code);
-        goto out;
+        tr_debug("    Failed to remove device: %s, %d.", err->message, err->code);
     }
 
     devices_mutex_lock();
-    device_unregister_device(ble_dev);
+
+    ble_dev = devices_find_device_by_device_id(user_data);
+    if (ble_dev != NULL) {
+        bool call_succeeded = edge_unregister_device(ble_dev, true /* remove_device_context */);
+        if (!call_succeeded) {
+            pt_edge_del_device(ble_dev);
+        }
+    }
+
     devices_mutex_unlock();
-out:
+
+    free(user_data);
+
     tr_debug("<-- ble_remove_device_done");
 }
 
-static void ble_remove_device(struct ble_device *ble_dev)
+void ble_remove_device(struct ble_device *ble_dev)
 {
     GDBusProxy *proxy;
     GError *err = NULL;
     assert(ble_dev != NULL);
+    device_stop_retry_timer(ble_dev);
 
     // Method is on the adapter interface.
     assert(g_config.connection != NULL);
@@ -395,8 +454,30 @@ static void ble_remove_device(struct ble_device *ble_dev)
                       -1,
                       NULL,
                       ble_remove_device_done,
-                      ble_dev);
+                      strdup(ble_dev->device_id));
 
+}
+
+static void ble_on_connect(GDBusProxy *proxy)
+{
+    struct ble_device *ble_dev = NULL;
+
+    assert(proxy != NULL);
+    assert(G_IS_DBUS_PROXY(proxy));
+    assert(ble_is_device_interface_proxy(proxy));
+
+    devices_mutex_lock();
+    ble_dev = ble_find_device_from_proxy(proxy);
+    if (ble_dev == NULL) {
+        tr_warn("Connected a device that we don't know about?");
+        goto out;
+    }
+
+    tr_info("BLE device %s connected!", ble_dev->attrs.addr);
+    device_set_connected(ble_dev, true);
+out:
+    devices_mutex_unlock();
+    return;
 }
 
 static void ble_on_disconnect(GDBusProxy *proxy)
@@ -415,8 +496,9 @@ static void ble_on_disconnect(GDBusProxy *proxy)
     }
 
     tr_info("BLE device %s disconnected!", ble_dev->attrs.addr);
-    // First remove it from the BlueZ, and if that succeeds we unregister.
-    ble_remove_device(ble_dev);
+    device_set_connected(ble_dev, false);
+    // Try to reconnect a few times.
+    ble_start_reconnection_timer_or_unregister_device(ble_dev);
 out:
     devices_mutex_unlock();
     return;
@@ -436,26 +518,63 @@ static void ble_on_services_resolved(GDBusProxy *proxy)
         assert(ble_is_device_interface_proxy(proxy));
 
         ble_dev = ble_find_device_from_proxy(proxy);
-        if (ble_dev != NULL) {
-            tr_info("Discovering BLE properties");
-            ble_discover_characteristics(ble_dev);
-            ble_debug_print_device(ble_dev);
+        if ((ble_dev != NULL)) {
+            if (!ble_dev->services_resolved) {
+                tr_info("Discovering BLE properties");
+                ble_discover_characteristics(ble_dev);
+                ble_debug_print_device(ble_dev);
 
-            /* convert BLE properties to PT resources */
-            device_add_resources_from_gatt(ble_dev);
-            device_add_known_translations_from_gatt(ble_dev);
+                /* convert BLE properties to PT resources */
+                device_add_resources_from_gatt(ble_dev);
+                device_add_known_translations_from_gatt(ble_dev);
 
-            // TODO: We register this late because the resources must
-            // all be present at registration time.  Try to figure out why.
+                // TODO: We register this late because the resources must
+                // all be present at registration time.  Try to figure out why.
+                ble_dev->services_resolved = true;
+            }
             device_register_device(ble_dev);
-        }
-        else {
+        } else {
             tr_warn("Resolved services on a device that we don't know about?");
         }
 
         devices_mutex_unlock();
     }
 }
+
+#if 1 == EXPERIMENTAL_ADVERTISEMENT_SUPPORT_ENABLED
+static void ble_handle_advertisement(GDBusProxy *proxy, GVariant *advertisement_data)
+{
+    devices_mutex_lock();
+
+    struct ble_device *ble = ble_find_device_from_proxy(proxy);
+    if (edge_is_connected() && !edge_device_exists(ble->device_id)) {
+        /* create the Edge PT device context */
+        if (!devices_create_pt_device(ble->device_id,              /* device ID */
+                                      "ARM",                       /* manufacturer */
+                                      "mept-ble",                  /* model number */
+                                      ble->attrs.addr,             /* serial number */
+                                      "mept-ble-advertisement")) { /* device type */
+            tr_err("Failed to create pt device context");
+            devices_del_device(ble);
+            goto out;
+        }
+        else {
+            tr_debug("Created GAP advertising device %s", ble->device_id);
+        }
+    }
+
+    if (edge_device_exists(ble->device_id)) {
+        if (!device_is_registered(ble)) {
+            device_register_device(ble);
+        }
+
+        // TODO: Parse advertisement data and update resources
+    }
+
+out:
+    devices_mutex_unlock();
+}
+#endif
 
 static void ble_properties_changed(GDBusProxy *proxy, GVariant *changed_properties, GStrv invalidated_properties, gpointer user_data)
 {
@@ -466,7 +585,6 @@ static void ble_properties_changed(GDBusProxy *proxy, GVariant *changed_properti
 
     assert(changed_properties != NULL);
     assert(invalidated_properties != NULL);
-    (void)proxy;
     (void)user_data;
     (void)invalidated_properties;
 
@@ -477,6 +595,7 @@ static void ble_properties_changed(GDBusProxy *proxy, GVariant *changed_properti
             assert(g_variant_is_of_type(value, G_VARIANT_TYPE_BOOLEAN));
             if (g_variant_get_boolean(value)) {
                 tr_debug("    %s: Connected -> 1", g_dbus_proxy_get_object_path(proxy));
+                ble_on_connect(proxy);
             } else {
                 tr_debug("    %s: Connected -> 0", g_dbus_proxy_get_object_path(proxy));
                 ble_on_disconnect(proxy);
@@ -491,8 +610,135 @@ static void ble_properties_changed(GDBusProxy *proxy, GVariant *changed_properti
                 tr_debug("    %s: ServicesResolved -> 0", g_dbus_proxy_get_object_path(proxy));
             }
         }
+#if 1 == EXPERIMENTAL_ADVERTISEMENT_SUPPORT_ENABLED
+        // Experimental advertisement support
+        if (strncmp(key, "ServiceData", sizeof("ServiceData")) == 0) {
+            char *servicedata = g_variant_print(value, TRUE);
+            tr_debug("    %s: ServiceData -> %s", g_dbus_proxy_get_object_path(proxy), servicedata);
+            g_free(servicedata);
+
+            ble_handle_advertisement(proxy, value);
+        }
+#endif
         g_variant_unref(value);
         g_free(s);
+    }
+}
+
+static void ble_create_device_context(GDBusProxy *proxy, ble_device_type device_type)
+{
+    char ble_device_id[BLE_DEVICE_NAME_MAX_LENGTH] = {0};
+    char bt_address[BLE_DEVICE_ADDRESS_SIZE] = {0};
+    struct ble_device *ble_dev = NULL;
+
+    if (ble_device_proxy_get_address(bt_address, sizeof bt_address, proxy) != 0) {
+        return;
+    }
+    tr_info("----> ble_create_device_context %s.", bt_address);
+
+    devices_make_device_id(ble_device_id, sizeof(ble_device_id), BLE_DEV, bt_address, g_config.postfix);
+    tr_debug("    ble_device_id = %s", ble_device_id);
+
+    /* see if we already know about this device */
+    devices_mutex_lock();
+    ble_dev = devices_find_device_by_device_id(ble_device_id);
+    devices_mutex_unlock();
+    if (NULL != ble_dev) {
+        tr_debug("    Device id %s already tracked.", ble_device_id);
+        return;
+    }
+    tr_debug("    Device is new.");
+
+    /* create our ble device context */
+    ble_dev = device_create(bt_address);
+    if (NULL == ble_dev) {
+        tr_err("Failed to allocate ble device context.");
+        return;
+    }
+    tr_debug("    Device context created.");
+
+    /* store the proxy handle */
+    ble_dev->proxy = proxy;
+    ble_dev->dbus_path = strdup(g_dbus_proxy_get_object_path(proxy));
+
+    /* set type */
+    ble_dev->device_type = device_type;
+
+    /* set up the device attributes */
+    tr_debug("    address = %s", ble_dev->attrs.addr);
+
+    /* add the device to our global list */
+    devices_mutex_lock();
+    devices_link_device(ble_dev, ble_device_id);
+    devices_mutex_unlock();
+    tr_info("<---- ble_create_device_context device: %p device_id: '%s' bt_address: %s.", ble_dev, ble_dev->device_id, bt_address);
+}
+
+// Used to count the timeout in milliseconds for the retry with count starting from 1
+static uint32_t ble_back_off_time_in_ms(int32_t retry_index)
+{
+    assert(retry_index > 0);
+    int32_t sleep_time = BLE_RETRY_SLEEP_TIME_INITIAL_SECS;
+
+    while (retry_index > 1 && (sleep_time < BLE_MAX_BACK_OFF_TIME_SECS)) {
+        sleep_time = sleep_time + sleep_time * BLE_SLEEP_TIME_MULTIPLIER;
+        retry_index--;
+    }
+
+    return sleep_time * 1000;
+}
+
+static gboolean ble_retry_connect(gpointer data)
+{
+    struct ble_device *ble_dev = (struct ble_device *) data;
+    tr_debug("--> ble_retry_connect device_id: '%s' proxy: %p", ble_dev->device_id, ble_dev->proxy);
+    ble_proxy_connect(ble_dev->proxy);
+    ble_dev->retry_timer_source = 0;
+    tr_debug("<-- ble_retry_connect");
+    return G_SOURCE_REMOVE;
+}
+
+static void ble_start_reconnection_timer_or_unregister_device(struct ble_device *ble_dev)
+{
+    if (0 == ble_dev->retry_timer_source) {
+        bool remove_device_context = false;
+        if (ble_dev->connection_retries < BLE_MAX_CONNECTION_RETRIES) {
+            ble_dev->connection_retries += 1;
+        }
+        tr_debug("--> ble_start_reconnection_timer_or_unregister_device device id: '%s' retry index: %d",
+                 ble_dev->device_id,
+                 ble_dev->connection_retries);
+
+        uint32_t retry_time_out_in_ms = ble_back_off_time_in_ms(ble_dev->connection_retries);
+        uint64_t duration_since_connection_seconds = devices_duration_in_sec_since_last_connection(ble_dev);
+
+        if (retry_time_out_in_ms > (BLE_MAX_BACK_OFF_TIME_SECS * 1000)) {
+            remove_device_context = (duration_since_connection_seconds >= MAX_CONNECTION_RETRY_TIME_SECONDS);
+            if (duration_since_connection_seconds >= BLE_MAX_BACK_OFF_TIME_SECS) {
+                // Unregister the device, because it's not reachable.
+                tr_err("    Unregistering device: '%s' due to maximum retry time in seconds: %d",
+                       ble_dev->device_id,
+                       BLE_MAX_BACK_OFF_TIME_SECS);
+                bool call_succeeded = edge_unregister_device(ble_dev, remove_device_context);
+                if (!call_succeeded && remove_device_context) {
+                    pt_edge_del_device(ble_dev);
+                }
+            }
+        }
+        if (!remove_device_context) {
+            tr_info("    retrying in %d ms.", retry_time_out_in_ms);
+            ble_dev->retry_timer_source = g_timeout_add_full(G_PRIORITY_HIGH,
+                                                             retry_time_out_in_ms,
+                                                             ble_retry_connect,
+                                                             ble_dev,
+                                                             NULL);
+        }
+        tr_debug("<-- ble_start_reconnection_timer_or_unregister_device");
+    } else {
+        tr_debug("ble_start_reconnection_timer_or_unregister_device (timer already running) device id: '%s' retry "
+                 "index: %d",
+                 ble_dev->device_id,
+                 ble_dev->connection_retries);
     }
 }
 
@@ -502,66 +748,52 @@ static void ble_connect_done(GObject *source_object, GAsyncResult *res, gpointer
     GVariant *ret = NULL;
     GError *err = NULL;
     struct ble_device *ble_dev = NULL;
-    char ble_device_id[BLE_DEVICE_NAME_MAX_LENGTH] = {0};
-    char bt_address[BLE_DEVICE_ADDRESS_SIZE] = {0};
-
-    tr_debug("--> ble_connect_done");
+    char *device_id = NULL;
 
     assert(proxy != NULL);
     (void)user_data;
     assert(user_data == NULL);
 
     ret = g_dbus_proxy_call_finish(proxy, res, &err);
+    devices_mutex_lock();
+    ble_dev = ble_find_device_from_proxy(proxy);
+    if (ble_dev) {
+        device_id = ble_dev->device_id;
+    }
     if (err != NULL) {
         assert(ret == NULL);
         const gchar *path = g_dbus_proxy_get_object_path(proxy);
-        tr_err("    Failed to connect to %s: %s, %d.", path, err->message, err->code);
+        tr_warn("--> ble_connect_done error: device proxy: %p device: %p device id: '%s'    Failed to connect to %s: "
+                "%s, %d.",
+                proxy,
+                ble_dev,
+                device_id,
+                path,
+                err->message,
+                err->code);
+        if (ble_dev) {
+            ble_start_reconnection_timer_or_unregister_device(ble_dev);
+        }
         goto out;
     }
 
-    if (ble_device_proxy_get_address(bt_address, sizeof bt_address, proxy) != 0) {
+    if (ble_dev == NULL) {
+        tr_debug("--> ble_connect_done no device: device proxy: %p", proxy);
         goto out;
     }
-    tr_info("Connected to device %s.", bt_address);
+    tr_debug("--> ble_connect_done success: device proxy: %p device: %p device id: '%s'", proxy, ble_dev, device_id);
 
-    assert(ble_device_is_connected(proxy));
-    (void)ble_device_is_connected;
-
-    devices_make_device_id(ble_device_id, sizeof(ble_device_id), BLE_DEV, bt_address, g_config.postfix);
-    tr_debug("    ble_device_id = %s", ble_device_id);
-
-    /* see if we already know about this device */
-    devices_mutex_lock();
-    ble_dev = devices_find_device(ble_device_id);
-    devices_mutex_unlock();
-    if (NULL != ble_dev) {
-        tr_debug("    Device id %s already tracked.", ble_device_id);
-        goto out;
-    }
-    tr_debug("    Device is new.");
-
-    /* create our ble device context */
-    ble_dev = device_create(bt_address);
-    if (NULL == ble_dev) {
-        tr_err("Failed to allocate ble device context.");
-        goto out;
-    }
-    tr_debug("    Device context created.");
-
-    /* store the proxy handle */
-    ble_dev->proxy = proxy;
-    ble_dev->dbus_path = strdup(g_dbus_proxy_get_object_path(proxy));
-
-    /* set up the device attributes */
-    tr_debug("    address = %s", ble_dev->attrs.addr);
+    // The connection succeeded. Reset the reconnection counter.
+    device_update_last_connected_timestamp(ble_dev);
+    ble_dev->connection_retries = 0;
 
     if (edge_is_connected()) {
-        /* create the mbed edge PT device context */
-        if (!devices_create_pt_device(ble_device_id,           /* device ID */
-                                      "ARM",                   /* manufacturer */
-                                      "mept-ble",              /* model number */
-                                      ble_dev->attrs.addr,     /* serial number */
-                                      "mept-ble")) {            /* device type */
+        /* create the Edge PT device context */
+        if (!devices_create_pt_device(device_id,           /* device ID */
+                                      "ARM",               /* manufacturer */
+                                      "mept-ble",          /* model number */
+                                      ble_dev->attrs.addr, /* serial number */
+                                      "mept-ble")) {       /* device type */
             tr_err("Failed to create pt device context");
             devices_del_device(ble_dev);
             goto out;
@@ -573,25 +805,21 @@ static void ble_connect_done(GObject *source_object, GAsyncResult *res, gpointer
         tr_debug("    Edge not connected, waiting...");
     }
 
-    /* add the device to our global list */
-    devices_mutex_lock();
-    devices_link_device(ble_dev, ble_device_id);
-    devices_mutex_unlock();
-
     // If we're previously connected to this, then services are already resolved.
     // Otherwise, they'll resolve soon and we'll handle it then.
     if (edge_is_connected() && ble_services_are_resolved(proxy)) {
-        tr_debug("    Device services have already resolved, processing now.");
+        tr_debug("    Device services have already resolved, processing now. device_id: '%s'", device_id);
         ble_on_services_resolved(proxy);
     } else {
-        tr_debug("    Device services are not yet resolved, waiting...");
+        tr_debug("    Device services are not yet resolved, waiting... device_id: %s", device_id);
     }
 
 out:
+    tr_debug("<-- ble_connect_done device: %p, device_id: '%s'", ble_dev, device_id);
+    devices_mutex_unlock();
     if (ret != NULL) {
         g_variant_unref(ret);
     }
-    tr_debug("<-- ble_connect_done");
 }
 
 /**
@@ -603,6 +831,8 @@ out:
  */
 static void ble_proxy_connect(GDBusProxy *devProxy)
 {
+    tr_debug("--> ble_proxy_connect %p", devProxy);
+    tr_info("    Connecting to device %s", g_dbus_proxy_get_object_path(devProxy));
     g_dbus_proxy_call(devProxy,
                       "Connect",
                       NULL,
@@ -611,6 +841,7 @@ static void ble_proxy_connect(GDBusProxy *devProxy)
                       NULL,
                       ble_connect_done,
                       NULL);
+    tr_debug("<-- ble_proxy_connect %p", devProxy);
 }
 
 
@@ -624,12 +855,12 @@ static void ble_proxy_connect(GDBusProxy *devProxy)
  * \param addr, DBUS path to BLE device
  *
  */
-static GDBusProxy *ble_connect(const char *addr)
+static GDBusProxy *ble_create_device_proxy(const char *addr)
 {
     GError *err;
     GDBusProxy *devProxy;
 
-    tr_debug("--> ble_connect: %s", addr);
+    tr_debug("--> ble_create_device_proxy: addr: %s", addr);
     err = NULL;
 
     assert(g_config.connection != NULL);
@@ -642,18 +873,22 @@ static GDBusProxy *ble_connect(const char *addr)
                                              NULL,
                                              &err);
     if (!G_IS_DBUS_PROXY(devProxy)) {
-        tr_err("Device %s, not available: %s", addr, err->message);
+        tr_err("    Device %s, not available: %s", addr, err->message);
         g_clear_error(&err);
         return NULL;
     }
 
-    ble_proxy_connect(devProxy);
-    g_signal_connect(devProxy, "g-properties-changed", G_CALLBACK(ble_properties_changed), NULL);
+    gulong prop_handler = g_signal_connect(devProxy, "g-properties-changed", G_CALLBACK(ble_properties_changed), NULL);
+    if (prop_handler == 0) {
+        tr_err("    Could not setup g-properties-changed signal! addr: %s", addr);
+        g_object_unref(devProxy);
+        return NULL;
+    }
 
     // print_proxy_properties(devProxy);
     (void)print_proxy_properties;
 
-    tr_debug("<-- ble_connect");
+    tr_debug("<-- ble_create_device_proxy addr: %s proxy: %p", addr, devProxy);
     return devProxy;
 }
 
@@ -681,7 +916,7 @@ static bool ble_is_device(GDBusObject *object)
 }
 
 /**
- * \brief Check whether given device advertises or has resolved supported services.
+ * \brief Check whether given device advertises or has resolved supported GATT services.
  *
  * \return Return true if device has supported services, false otherwise.
  */
@@ -716,23 +951,63 @@ static bool ble_identify_device_services(GDBusProxy *device_proxy)
 }
 
 /**
- * \brief Check whether device is supported based on some custom properties or attributes.
+ * \brief Determine if device is supported based on device whitelist configuration.
  *
- * \return Return true if device is supported, false otherwise.
+ * \return Return ble_device_type enum, should return BLE_DEVICE_UNKNOWN if device is
+ *         not identified return one of the other values depending on the type of
+ *         identified device.
  */
-static bool ble_identify_custom_device(GDBusProxy *device_proxy)
+static ble_device_type ble_identify_device_using_whitelist(GDBusProxy *device_proxy)
 {
+    tr_debug("ble_identify_device_using_whitelist device_proxy: %p", device_proxy);
     assert(G_IS_DBUS_PROXY(device_proxy));
 
-    bool ret = false;
+    GVariant *name_prop;
+    GVariant *address_prop = NULL;
+    ble_device_type ret = BLE_DEVICE_UNKNOWN;
 
-    GVariant *name = g_dbus_proxy_get_cached_property(device_proxy, "Name");
-    if (name) {
-        if (g_variant_type_equal(g_variant_get_type(name), G_VARIANT_TYPE_STRING) &&
-            strstr(g_variant_get_string(name, NULL), "Thunder Sense")) {
-            ret = true;
+    name_prop = g_dbus_proxy_get_cached_property(device_proxy, "Name");
+    if (name_prop && g_variant_type_equal(g_variant_get_type(name_prop), G_VARIANT_TYPE_STRING)) {
+        const char *name = g_variant_get_string(name_prop, NULL);
+        tr_debug("Trying to identify device with name '%s'", name);
+        if (g_config.white_list_entries) {
+            ns_list_foreach_safe(device_conf_entry_t, entry, g_config.white_list_entries)
+            {
+                if (entry->partial_match) {
+                    if (strstr(name, entry->name)) {
+                        ret = BLE_DEVICE_PERSISTENT_GATT_SERVER;
+                        goto out;
+                    }
+                } else {
+                    // Full match needed
+                    if (0 == strcmp(entry->name, name)) {
+                        ret = BLE_DEVICE_PERSISTENT_GATT_SERVER;
+                        goto out;
+                    }
+                }
+            }
         }
-        g_variant_unref(name);
+    }
+/* TODO / FIXME: whitelist needs to support configuring experimental advertisement only device */
+#if 1 == EXPERIMENTAL_ADVERTISEMENT_SUPPORT_ENABLED
+    // Experimental advertisement only device support
+    address_prop = g_dbus_proxy_get_cached_property(device_proxy, "Address");
+    if (address_prop && g_variant_type_equal(g_variant_get_type(address_prop), G_VARIANT_TYPE_STRING)) {
+        const char *address = g_variant_get_string(address_prop, NULL);
+        tr_debug("Comparing address %s", address);
+        if (strstr(address, "AC:23:3F:23:C7:E3")) {
+            ret = BLE_DEVICE_GAP_ADVERTISEMENT_ONLY;
+            goto out;
+        }
+    }
+#endif
+
+out:
+    if (name_prop) {
+        g_variant_unref(name_prop);
+    }
+    if (address_prop) {
+        g_variant_unref(address_prop);
     }
 
     return ret;
@@ -746,15 +1021,15 @@ static bool ble_identify_custom_device(GDBusProxy *device_proxy)
  * \params a object to check
  *
  */
-static bool ble_should_connect_to_device(const char *path)
+static ble_device_type ble_identify_device_type(const char *path)
 {
-    GDBusProxy *devProxy = NULL;
-    bool ret = false;
+    GDBusProxy *devProxy;
+    ble_device_type device_type = BLE_DEVICE_UNKNOWN;
     GError *err = NULL;
 
     assert(g_config.connection != NULL);
 
-    tr_info("--> ble_should_connect_to_device");
+    tr_info("--> ble_identify_device_type path: %s", path);
 
     devProxy = g_dbus_proxy_new_sync(g_config.connection,
                                      G_DBUS_CALL_FLAGS_NONE,
@@ -766,28 +1041,28 @@ static bool ble_should_connect_to_device(const char *path)
                                      &err);
 
     if (!G_IS_DBUS_PROXY(devProxy)) {
-        tr_err("Device %s, not available: %s", path, err->message);
+        tr_err("    Device %s, not available: %s", path, err->message);
         g_clear_error(&err);
-        return false;
+        return BLE_DEVICE_UNKNOWN;
     }
 
-    if (ble_identify_device_services(devProxy)) {
-        tr_info("    identified supported services");
-        ret = true;
-        goto out;
+    if (g_config.service_based_discovery) {
+        if (ble_identify_device_services(devProxy)) {
+            tr_info("    identified supported services");
+            device_type = BLE_DEVICE_PERSISTENT_GATT_SERVER;
+            goto out;
+        }
     }
-    else if (ble_identify_custom_device(devProxy)) {
-        tr_info("    identified custom device");
-        ret = true;
-        goto out;
-    }
-    else {
-        tr_info("   device not identified");
+    device_type = ble_identify_device_using_whitelist(devProxy);
+    if (device_type == BLE_DEVICE_UNKNOWN) {
+        tr_info("    device not identified");
+    } else {
+        tr_info("    identified custom device (type %d)", device_type);
     }
 out:
     g_object_unref(devProxy);
-    tr_info("<-- ble_should_connect_to_device");
-    return ret;
+    tr_info("<-- ble_identify_device_type");
+    return device_type;
 }
 
 
@@ -821,6 +1096,9 @@ static int translate_ble_flags(gchar *flags_str)
     if (strstr(flags_str, "write") != NULL) {
         flags |= BLE_GATT_PROP_PERM_WRITE;
     }
+    if (strstr(flags_str, "notify") != NULL) {
+        flags |= BLE_GATT_PROP_PERM_NOTIFY;
+    }
     /*TODO: BLE exposes other flags besides read/write (e.g. 'indicate')
       Need to map those properties to LWM2M properties*/
 
@@ -833,6 +1111,94 @@ static int object_on_adapter(const char *objpath, const char *adapter)
     snprintf(adapter_path, sizeof(adapter_path), "/org/bluez/%s/", adapter);
     return (0 == strncmp(objpath, adapter_path, strlen(adapter_path)));
 }
+
+#if 1 == EXPERIMENTAL_NOTIFY_CHARACTERISTIC_SUPPORT
+static void ble_characteristic_properties_changed(GDBusProxy *proxy,
+                                                  GVariant *changed_properties,
+                                                  GStrv invalidated_properties,
+                                                  gpointer user_data)
+{
+    tr_debug("Characteristic properties changed proxy: %p", proxy);
+    tr_debug("Characteristic: %s", g_dbus_proxy_get_object_path(proxy));
+    // TODO: Update translated resource values for this characteristic
+}
+
+static void ble_start_notify_done(GObject *source_object, GAsyncResult *res, gpointer user_data)
+{
+    GError *err = NULL;
+    GDBusProxy *proxy = (GDBusProxy *)source_object;
+    GVariant *ret;
+
+    assert(user_data == NULL);
+    assert(proxy != NULL);
+    assert(G_IS_DBUS_PROXY(proxy));
+    (void)user_data;
+    tr_debug("--> ble_start_notify_done proxy: %p", proxy);
+
+    ret = g_dbus_proxy_call_finish(proxy, res, &err);
+    if (err == NULL) {
+        gchar *ret_string = g_variant_print(ret, TRUE);
+        if (ret_string != NULL) {
+            tr_debug("    ble_start_notify_done: StartNotify returned %s", ret_string);
+            g_free(ret_string);
+        }
+        if (ret != NULL) {
+            g_variant_unref(ret);
+        }
+    } else {
+        assert(ret == NULL);
+    }
+    tr_debug("<-- ble_start_notify_done");
+}
+
+void ble_characteristic_stop_notify_proxy(const struct ble_gatt_char *ch)
+{
+    assert(ch != NULL);
+    assert(G_IS_DBUS_PROXY(ch->proxy));
+
+    // Configure properties changed signal for getting value notifications from notify characteristics
+    if (ch->properties & BLE_GATT_PROP_PERM_NOTIFY) {
+        tr_debug("Start notify proxy for path %s", ch->dbus_path);
+
+        GError *err = NULL;
+        // Start the notify operations
+        g_dbus_proxy_call_sync(ch->proxy,
+                               "StopNotify",
+                               NULL,
+                               G_DBUS_CALL_FLAGS_NONE,
+                               -1,
+                               NULL,
+                               &err);
+        g_object_unref(ch->proxy);
+    }
+}
+
+static void ble_characteristic_start_notify_proxy(const struct ble_gatt_char *ch)
+{
+    assert(ch != NULL);
+    assert(G_IS_DBUS_PROXY(ch->proxy));
+
+    // Configure properties changed signal for getting value notifications from notify characteristics
+    if (ch->properties & BLE_GATT_PROP_PERM_NOTIFY) {
+        tr_debug("Start notify proxy for dbus_path: %s", ch->dbus_path);
+
+        (void)g_signal_connect(ch->proxy,
+                               "g-properties-changed",
+                               G_CALLBACK(ble_characteristic_properties_changed),
+                               NULL);
+
+        // Start the notify operations
+        g_dbus_proxy_call(ch->proxy,
+                          "StartNotify",
+                          NULL,
+                          G_DBUS_CALL_FLAGS_NONE,
+                          -1,
+                          NULL,
+                          ble_start_notify_done,
+                          NULL);
+    }
+}
+#endif // EXPERIMENTAL_NOTIFY_CHARACTERISTIC_SUPPORT
 
 static void process_characteristic_object(GDBusObject *obj, struct ble_device *ble_dev, const char *adapter)
 {
@@ -943,7 +1309,6 @@ static void process_characteristic_object(GDBusObject *obj, struct ble_device *b
                 tr_debug("characteristic [%s] belongs to device [%s] - not device [%s]",
                         path, char_device_address, ble_dev->attrs.addr);
             } */
-            g_object_unref(proxy);
         }
 
         if (has_uuid) {
@@ -954,15 +1319,20 @@ static void process_characteristic_object(GDBusObject *obj, struct ble_device *b
                                                 service_path,
                                                 char_uuid,
                                                 path,
-                                                char_flags);
+                                                char_flags,
+                                                proxy);
 
             if (ch == NULL) {
                 tr_error("Failed to add gatt characteristic for %s, out of memory?", path);
             }
+#if 1 == EXPERIMENTAL_NOTIFY_CHARACTERISTIC_SUPPORT
+            else {
+                ble_characteristic_start_notify_proxy(ch);
+            }
+#endif // EXPERIMENTAL_NOTIFY_CHARACTERISTIC_SUPPORT
         }
     }
 }
-
 
 static bool ble_is_characteristic(GDBusObject *maybe_characteristic)
 {
@@ -1003,7 +1373,7 @@ static void ble_discover_characteristics(struct ble_device *ble_dev)
     GError *err;
     GList *objects = NULL;
 
-    tr_debug("--> BLE discover characteristics");
+    tr_debug("--> BLE discover characteristics device_id: '%s'", ble_dev->device_id);
     err = NULL;
     assert(g_config.connection != NULL);
     GDBusObjectManager *bluez_manager = g_dbus_object_manager_client_new_sync(
@@ -1045,6 +1415,33 @@ out:
     tr_debug("<-- ble_discover_characteristics");
 }
 
+static void ble_new_device(const char *dbus_path)
+{
+    tr_info("Discovered device dbus_path: '%s'\n", dbus_path);
+
+    if (global_keep_running) {
+        ble_device_type device_type;
+        device_type = ble_identify_device_type(dbus_path);
+
+        if (device_type != BLE_DEVICE_UNKNOWN) {
+            // Create proxy for all device types that are known
+            GDBusProxy *proxy = ble_create_device_proxy(dbus_path);
+            ble_create_device_context(proxy, device_type);
+            if (device_type == BLE_DEVICE_PERSISTENT_GATT_SERVER) {
+                tr_info("    device type is persistent GATT server");
+                ble_proxy_connect(proxy);
+            }
+#if 1 == EXPERIMENTAL_ADVERTISEMENT_SUPPORT_ENABLED
+            else if (device_type == BLE_DEVICE_GAP_ADVERTISEMENT_ONLY) {
+                tr_info("    device type is GAP advertisement only");
+            }
+#endif
+        }
+    } else {
+        tr_debug("   ignoring new device, because shutdown is in progress.");
+    }
+}
+
 // Helper function for g_list_foreach
 static void ble_handle_known_device(gpointer data, gpointer user_data)
 {
@@ -1057,14 +1454,7 @@ static void ble_handle_known_device(gpointer data, gpointer user_data)
     if (ble_is_device(object)) {
         const char *path = g_dbus_object_get_object_path(object);
         if (object_on_adapter(path, g_config.adapter)) {
-            bool should_connect = true;
-            if (g_config.extended_discovery_mode) {
-                should_connect = ble_should_connect_to_device(path);
-            }
-            if (should_connect) {
-                tr_info("Connecting to %s.", path);
-                ble_connect(path);
-            }
+            ble_new_device(path);
         } else {
             tr_debug("Ignoring %s due to not being on adapter.", path);
         }
@@ -1127,6 +1517,7 @@ void ble_startdiscovery_done(GObject *source_object, GAsyncResult *res, gpointer
             g_variant_unref(ret);
         }
     } else {
+        tr_err("    ble_start_discovery_done: StartDiscovery failed!");
         assert(ret == NULL);
     }
     tr_debug("<-- ble_startdiscovery_done");
@@ -1144,6 +1535,7 @@ void ble_startdiscovery_done(GObject *source_object, GAsyncResult *res, gpointer
  */
 static int ble_discover(GDBusObjectManager *bluez_manager)
 {
+    // FIXME: StopDiscovery is never called. Calling it could free memory leaks!
     int ret = 0;
     GError *err = NULL;
     GVariant *proxy_call;
@@ -1164,12 +1556,10 @@ static int ble_discover(GDBusObjectManager *bluez_manager)
     GVariantBuilder builder;
     g_variant_builder_init(&builder, G_VARIANT_TYPE_VARDICT);
 
-    // If extended discovery mode is disabled, we only discover devices based
+    // If service based discovery is enabled, we discover devices based
     // on advertised services. So build the service filter and add it to the
-    // discovery filter. In extended discovery mode, the service uuid filtering
-    // is disabled from bluez side, instead all LE devices are discovered and
-    // filtering is done internally in on_device_added or ble_connect_to_known_devices.
-    if (!g_config.extended_discovery_mode) {
+    // discovery filter.
+    if (g_config.service_based_discovery) {
         GVariant *services_filter = ble_services_get_service_uuid_filter();
         g_variant_builder_add(&builder,
                               "{sv}",
@@ -1223,31 +1613,45 @@ out:
     return ret;
 }
 
-static void ble_on_device_added(GDBusObjectManager *manager, GDBusObject *object, gpointer user_data)
+static void ble_on_object_added(GDBusObjectManager *manager, GDBusObject *object, gpointer user_data)
 {
     (void)user_data;
     (void)manager;
     if (ble_is_device(object)) {
         const char *path = g_dbus_object_get_object_path(object);
-        tr_info("Discovered device %s\n", path);
-        bool should_connect = true;
-        if (g_config.extended_discovery_mode) {
-            should_connect = ble_should_connect_to_device(path);
-        }
-
-        if (should_connect) {
-            ble_connect(path);
-        }
+        tr_info("ble_on_object_added path: '%s'", path);
+        ble_new_device(path);
     }
 }
 
-static void ble_on_device_removed(GDBusObjectManager *manager, GDBusObject *object, gpointer user_data)
+static void ble_on_object_removed(GDBusObjectManager *manager, GDBusObject *object, gpointer user_data)
 {
     gchar *owner;
     (void)user_data;
     (void)object;
     owner = g_dbus_object_manager_client_get_name_owner(G_DBUS_OBJECT_MANAGER_CLIENT(manager));
-    tr_info("Removed object at %s (owner %s)\n", g_dbus_object_get_object_path(object), owner);
+    const gchar *object_path = g_dbus_object_get_object_path(object);
+    tr_info("Removed object at %s (owner %s)", object_path, owner);
+    struct ble_device *ble_dev = NULL;
+
+    devices_mutex_lock();
+    // Check if the Bluez hci interface was removed.
+    // This happens for example, if the bluetooth daemon crashes.
+    if (!strcmp(g_config.bluez_hci_path, object_path)) {
+        tr_debug("Restarting g_main loop");
+        g_main_loop_quit(g_config.g_loop);
+    } else {
+        ble_dev = devices_find_device_by_dbus_path(object_path);
+        if (ble_dev == NULL) {
+            tr_debug("    Can't find device for %s", object_path);
+        } else {
+            bool call_succeeded = edge_unregister_device(ble_dev, true /* remove_context */);
+            if (!call_succeeded) {
+                pt_edge_del_device(ble_dev);
+            }
+        }
+    }
+    devices_mutex_unlock();
     g_free(owner);
 }
 
@@ -1255,10 +1659,10 @@ static void ble_on_device_removed(GDBusObjectManager *manager, GDBusObject *obje
 void ble_read_all_characteristics_for_device(struct ble_device *ble)
 {
     int srvc, ch;
-
+    tr_debug("---> ble_read_all_characteristics_for_device device_id: '%s'", ble->device_id);
     if (!ble_device_is_connected(ble->proxy)) {
-        tr_debug("Trying to read a disconnected device.");
-        return;
+        tr_debug("    Trying to read a disconnected device.");
+        goto exit_label;
     }
 
     for (srvc = 0; srvc < ble->attrs.services_count; srvc++) {
@@ -1273,6 +1677,8 @@ void ble_read_all_characteristics_for_device(struct ble_device *ble)
             }
         }
     }
+exit_label:
+    tr_debug("<--- ble_read_all_characteristics_for_device device_id: '%s'", ble->device_id);
 }
 
 static gboolean ble_read_everything(gpointer data)
@@ -1290,12 +1696,15 @@ static gboolean ble_read_everything(gpointer data)
     devices_mutex_lock();
 
     ns_list_foreach_safe(struct ble_device, ble, devices_get_list()) {
-        if (device_is_registered(ble)) {
+        if (device_is_registered(ble) && device_is_connected(ble)) {
             // TODO: handle lwm2m subscription -> GATT notify
             ble_read_all_characteristics_for_device(ble);
             device_write_values_to_pt(ble);
         } else {
-            tr_info("device %s is unregistered", ble->attrs.addr);
+            tr_info("device '%s' is registered: %d and connected: %d",
+                    ble->attrs.addr,
+                    device_is_registered(ble),
+                    device_is_connected(ble));
         }
     }
 
@@ -1379,7 +1788,7 @@ gboolean pt_ble_pt_ready(gpointer data)
     // Create and register all devices that are already known about
     ns_list_foreach_safe(struct ble_device, ble, devices_get_list()) {
         if (!edge_device_exists(ble->device_id)) {
-            /* create the mbed edge PT device context */
+            /* create the Edge PT device context */
             if (!devices_create_pt_device(ble->device_id,          /* device ID */
                                           "ARM",                   /* manufacturer */
                                           "mept-ble",              /* model number */
@@ -1505,112 +1914,214 @@ gboolean ble_adapter_set_powered(gboolean powered)
     return ret;
 }
 
+device_conf_list_t *device_conf_list_read(const char *file_path)
+{
+    device_conf_list_t *devices_list = NULL;
+    json_t *json = NULL;
+    uint8_t *data = NULL;
+    if (file_path) {
+        size_t bytes_read = 0;
+
+        if (0 == edge_read_file(file_path, &data, &bytes_read)) {
+            json_error_t error;
+            json_t *json = json_loads((const char *) data, 0, &error);
+            if (json != NULL) {
+                json_t *devices = json_object_get(json, "whitelisted-devices");
+                if (NULL == devices) {
+                    tr_err("Cannot find 'whitelisted-devices' in '%s'", file_path);
+                    goto exit_label;
+                }
+                size_t index;
+                json_t *entry;
+                devices_list = calloc(1, sizeof(device_conf_list_t));
+                ns_list_init(devices_list);
+
+                json_array_foreach(devices, index, entry)
+                {
+                    json_t *json_name = json_object_get(entry, "name");
+                    if (!json_name) {
+                        tr_err("Cannot find name-value pair for 'name' in device entry");
+                        goto error_exit;
+                    }
+                    if (!json_is_string(json_name)) {
+                        tr_err("Value for key 'name' is not a string");
+                        goto error_exit;
+                    }
+                    bool partial = true;
+                    json_t *partial_json = json_object_get(entry, "partial-match");
+                    if (partial_json) {
+                        if (json_is_integer(partial_json)) {
+                            partial = (bool) json_integer_value(partial_json);
+                        } else {
+                            tr_err("Value for 'partial-match' is not integer");
+                            goto error_exit;
+                        }
+                    }
+                    device_conf_entry_t *device_conf_entry = calloc(1, sizeof(device_conf_entry_t));
+                    device_conf_entry->partial_match = partial;
+                    device_conf_entry->name = strdup(json_string_value(json_name));
+                    ns_list_add_to_end(devices_list, device_conf_entry);
+                }
+            } else {
+                tr_err("Jansson cannot parse '%s' error: '%s' on line: %d", file_path, error.text, error.line);
+            }
+        } else {
+            tr_err("Cannot read the file '%s'", file_path);
+        }
+    }
+    goto exit_label;
+error_exit:
+    device_conf_list_free(devices_list);
+    devices_list = NULL;
+
+exit_label:
+    json_decref(json);
+    free(data);
+    return devices_list;
+}
+
+static void device_conf_list_free(device_conf_list_t *list)
+{
+    if (list) {
+        ns_list_foreach_safe(struct device_conf_entry, dev, list)
+        {
+            free(dev->name);
+            ns_list_remove(list, dev);
+        }
+        free(list);
+    }
+}
+
 /**
  * \brief updates connected BLE devices in loop
  *
  * This function goes in a loop throw registered BLE devices.
  * Read all requiered characteristic and updates devices.
+ * \return 0 if there's no errors. Otherwise return non-zero.
  */
-void ble_start(const char *postfix, const char *adapter, const char *address, int clear_device_cache, int extended_discovery_mode)
+int ble_start(const char *postfix,
+              const char *adapter,
+              const char *address,
+              int clear_device_cache,
+              const char *extended_discovery_file_path,
+              int service_based_discovery)
 {
-    GError *err = NULL;
-    GDBusObjectManager *bluez_manager = NULL;
-    gulong object_added_signal, object_removed_signal;
-
-    tr_debug("--> ble_start");
-
-    g_config.extended_discovery_mode = extended_discovery_mode;
-    g_config.postfix = postfix;
-    g_config.adapter = adapter;
-    snprintf(g_config.bluez_hci_path, sizeof g_config.bluez_hci_path, "/org/bluez/%s", adapter);
-
-    if (ble_connect_to_dbus(address)) {
-        // Error message already printed.
-        goto out;
+    int ret_val = 0;
+    if (extended_discovery_file_path) {
+        g_config.white_list_entries = device_conf_list_read(extended_discovery_file_path);
+        if (NULL == g_config.white_list_entries) {
+            tr_err("Couldn't read whitelist even though the extended discovery file is specified!");
+            ret_val = 1;
+            goto out;
+        }
     }
+    bool retry;
+    do {
+        tr_debug("--> ble_start extended_discovery_file_path: %s", extended_discovery_file_path);
+        GError *err = NULL;
+        GDBusObjectManager *bluez_manager = NULL;
+        gulong object_added_signal, object_removed_signal;
 
-    g_config.g_loop = g_main_loop_new(NULL, FALSE);
-    if (g_config.g_loop == NULL) {
-        tr_err("Error: couldn't allocate main loop");
-        goto out;
-    }
+        g_config.postfix = postfix;
+        g_config.adapter = adapter;
+        g_config.service_based_discovery = service_based_discovery;
+        snprintf(g_config.bluez_hci_path, sizeof g_config.bluez_hci_path, "/org/bluez/%s", adapter);
 
-    tr_info("creating GDBus Bluez interface");
-    err = NULL;
-    assert(g_config.connection != NULL);
-    bluez_manager = g_dbus_object_manager_client_new_sync(
-                        g_config.connection,
-                        G_DBUS_OBJECT_MANAGER_CLIENT_FLAGS_NONE,
-                        BLUEZ_NAME,
-                        "/",
-                        NULL,
-                        NULL,
-                        NULL,
-                        NULL,
-                        &err);
-    if (NULL == bluez_manager) {
-        assert(err != NULL);
-        tr_err("Error: Is Bluez running? %d %s", err->code, err->message);
-        g_clear_error(&err);
-        goto out;
-    }
-    tr_info("created GDBus Bluez interface");
+        if (ble_connect_to_dbus(address)) {
+            // Error message already printed.
+            ret_val = 2;
+            goto out;
+        }
 
-    if (!ble_adapter_is_powered()) {
-        tr_info("powering on BlueZ adapter");
-        if (ble_adapter_set_powered(true)) {
-            tr_info("BlueZ adapter powered on");
+        g_config.g_loop = g_main_loop_new(NULL, FALSE);
+        if (g_config.g_loop == NULL) {
+            tr_err("Error: couldn't allocate main loop");
+            ret_val = 3;
+            goto out;
+        }
+
+        tr_info("creating GDBus Bluez interface");
+        err = NULL;
+        assert(g_config.connection != NULL);
+        bluez_manager = g_dbus_object_manager_client_new_sync(g_config.connection,
+                                                              G_DBUS_OBJECT_MANAGER_CLIENT_FLAGS_NONE,
+                                                              BLUEZ_NAME,
+                                                              "/",
+                                                              NULL,
+                                                              NULL,
+                                                              NULL,
+                                                              NULL,
+                                                              &err);
+        if (NULL == bluez_manager) {
+            assert(err != NULL);
+            tr_err("Error: Is Bluez running? %d %s", err->code, err->message);
+            g_clear_error(&err);
+            goto out;
+        }
+        tr_info("created GDBus Bluez interface");
+
+        if (!ble_adapter_is_powered()) {
+            tr_info("powering on BlueZ adapter");
+            if (ble_adapter_set_powered(true)) {
+                tr_info("BlueZ adapter powered on");
+            } else {
+                tr_error("could not power on adapter!");
+                goto out;
+            }
+        }
+
+        /* Before we discover, we must check if there are existing devices. */
+        if (clear_device_cache) {
+            ble_clear_device_cache(bluez_manager);
         }
         else {
-            tr_error("could not power on adapter!");
-            return;
+            ble_connect_to_known_devices(bluez_manager);
         }
-    }
 
-    /* Before we discover, we must check if there are existing devices. */
-    if (clear_device_cache) {
-        ble_clear_device_cache(bluez_manager);
-    }
-    else {
-        ble_connect_to_known_devices(bluez_manager);
-    }
+        object_added_signal = g_signal_connect(bluez_manager, "object-added", G_CALLBACK(ble_on_object_added), NULL);
+        object_removed_signal = g_signal_connect(bluez_manager,
+                                                 "object-removed",
+                                                 G_CALLBACK(ble_on_object_removed),
+                                                 NULL);
 
-    object_added_signal = g_signal_connect(
-            bluez_manager,
-            "object-added",
-            G_CALLBACK(ble_on_device_added),
-            NULL);
-    object_removed_signal = g_signal_connect(
-            bluez_manager,
-            "object-removed",
-            G_CALLBACK(ble_on_device_removed),
-            NULL);
+        if (ble_discover(bluez_manager) != 0) {
+            tr_err("ble_discover Error: Is Bluez running?");
+            goto out;
+        }
 
-    if (ble_discover(bluez_manager) != 0) {
-        tr_err("ble_discover Error: Is Bluez running?");
-        goto out;
-    }
+        // Schedule periodic reads of all devices.
+        g_config.g_source_id_1 = g_timeout_add_full(G_PRIORITY_HIGH,
+                                                    BLE_VALUE_READ_INTERVAL,
+                                                    ble_read_everything,
+                                                    NULL,
+                                                    NULL);
 
-    // Schedule periodic reads of all devices.
-    g_config.g_source_id_1 = g_timeout_add_full(G_PRIORITY_HIGH, BLE_VALUE_READ_INTERVAL, ble_read_everything, NULL, NULL);
+        g_main_loop_run(g_config.g_loop);
 
-    g_main_loop_run(g_config.g_loop);
+        g_source_remove(g_config.g_source_id_1);
 
-    g_source_remove(g_config.g_source_id_1);
-
-    g_signal_handler_disconnect(bluez_manager, object_added_signal);
-    g_signal_handler_disconnect(bluez_manager, object_removed_signal);
-out:
-    if (g_config.g_loop != NULL) {
-        g_main_loop_unref(g_config.g_loop);
-    }
-    if (bluez_manager != NULL) {
-        g_object_unref(bluez_manager);
-    }
-    if (g_config.connection != NULL) {
-       g_object_unref(g_config.connection);
-    }
+        g_signal_handler_disconnect(bluez_manager, object_added_signal);
+        g_signal_handler_disconnect(bluez_manager, object_removed_signal);
+    out:
+        if (g_config.g_loop != NULL) {
+            g_main_loop_unref(g_config.g_loop);
+        }
+        if (bluez_manager != NULL) {
+            g_object_unref(bluez_manager);
+        }
+        if (g_config.connection != NULL) {
+            g_object_unref(g_config.connection);
+        }
+        retry = (ret_val == 0 && global_keep_running);
+        if (retry) {
+            tr_info("Retry connecting to bluez in %d seconds...", BLUEZ_RECONNECT_RETRY_TIME_SECONDS);
+            sleep(BLUEZ_RECONNECT_RETRY_TIME_SECONDS);
+        }
+    } while (retry);
+    device_conf_list_free(g_config.white_list_entries);
+    g_config.white_list_entries = NULL;
     tr_debug("<-- ble_start");
+    return ret_val;
 }
 
 /**
@@ -1711,51 +2222,54 @@ void ble_read_characteristic_callback(GObject *source_object,
     int ch = read_userdata->ch;
     int srvc = read_userdata->srvc;
 
-    devices_mutex_lock();
-    struct ble_device *ble = devices_find_device(read_userdata->device_id);
-    device_mutex_lock(ble);
-    struct ble_gatt_service *gattservice = &(ble->attrs.services[srvc]);
-    struct ble_gatt_char *gattchar = &(gattservice->chars[ch]);
+    if (ret != NULL) {
+        devices_mutex_lock();
+        struct ble_device *ble = devices_find_device_by_device_id(read_userdata->device_id);
+        device_mutex_lock(ble);
+        struct ble_gatt_service *gattservice = &(ble->attrs.services[srvc]);
+        struct ble_gatt_char *gattchar = &(gattservice->chars[ch]);
 
-    size_t size = gattchar->value_size;
-    uint8_t *data = gattchar->value;
+        size_t size = gattchar->value_size;
+        uint8_t *data = gattchar->value;
 
-    parse_result_variant(ret, data, &size);
-    gattchar->value_length = size;
-    g_variant_unref(ret);
+        parse_result_variant(ret, data, &size);
+        gattchar->value_length = size;
+        g_variant_unref(ret);
 
-    if (ble_services_is_supported_characteristic(gattservice->uuid, gattchar->uuid)) {
-        ble_services_decode_and_write_characteristic_translation(ble, srvc, ch, gattchar->value, size);
-    }
+        if (ble_services_is_supported_characteristic(gattservice->uuid, gattchar->uuid)) {
+            ble_services_decode_and_write_characteristic_translation(ble, srvc, ch, gattchar->value, size);
+        }
 
-    // TODO: endian conversions for other size integers and floats
-    if (gattchar->dtype == BLE_INTEGER) {
-        switch (gattchar->value_size) {
-        case 2:
+        // TODO: endian conversions for other size integers and floats
+        if (gattchar->dtype == BLE_INTEGER) {
+            switch (gattchar->value_size) {
+            case 2:
             {
                 uint16_t *u16 = (uint16_t *)gattchar->value;
                 uint16_t host = *u16;
                 *u16 = htons(host);
             }
             break;
-        case 4:
+            case 4:
             {
                 uint32_t *u32 = (uint32_t *)gattchar->value;
                 uint32_t host = *u32;
                 *u32 = htonl(host);
             }
             break;
-        case 8:
-        default:
-            break;
+            case 8:
+            default:
+                break;
+            }
         }
-    }
 
-    // Inform Edge PT of resource value change
-    device_update_characteristic_resource_value(ble, srvc, ch, gattchar->value, gattchar->value_length);
-    device_mutex_unlock(ble);
-    devices_mutex_unlock();
-    tr_debug("    Updated value for characteristic %s", gattchar->dbus_path);
+        // Inform Edge PT of resource value change
+        device_update_characteristic_resource_value(ble, srvc, ch, gattchar->value, gattchar->value_length);
+        device_mutex_unlock(ble);
+        devices_mutex_unlock();
+        tr_debug("    Updated value for characteristic %s", gattchar->dbus_path);
+    }
+    free(read_userdata->device_id);
     free(read_userdata);
 }
 
@@ -1812,7 +2326,7 @@ int ble_read_characteristic_async(char *characteristic_path,
     g_variant_builder_init(&build_opt, G_VARIANT_TYPE("a{sv}"));
 
     struct async_read_userdata *read_userdata = calloc(1, sizeof(struct async_read_userdata));
-    read_userdata->device_id = device_id;
+    read_userdata->device_id = strdup(device_id);
     read_userdata->srvc = srvc;
     read_userdata->ch = ch;
 
@@ -1833,21 +2347,21 @@ int ble_write_characteristic(const char    *characteristic_path,
                              const uint8_t *data,
                              size_t         size)
 {
-    GVariantBuilder build_opt;
-    GVariant *ret;
-    GDBusProxy *charProxy;
+    GVariant *ret = NULL;
+    GDBusProxy *charProxy = NULL;
     GError *err = NULL;
     int rc = 0;
 
     assert(g_config.connection != NULL);
     charProxy = g_dbus_proxy_new_sync(g_config.connection,
-                                              G_DBUS_PROXY_FLAGS_NONE,
-                                              NULL,
-                                              BLUEZ_NAME,
-                                              characteristic_path,
-                                              GATT_CHARACTERISTIC_IFACE,
-                                              NULL,
-                                              &err);
+                                      G_DBUS_PROXY_FLAGS_NONE,
+                                      NULL,
+                                      BLUEZ_NAME,
+                                      characteristic_path,
+                                      GATT_CHARACTERISTIC_IFACE,
+                                      NULL,
+                                      &err);
+
     if (!G_IS_DBUS_PROXY(charProxy)) {
         tr_err("Get characteristic proxy failed: %s (%d)", err->message, err->code);
         rc = err->code;
@@ -1855,16 +2369,17 @@ int ble_write_characteristic(const char    *characteristic_path,
         return rc;
     }
 
-    g_variant_builder_init(&build_opt, G_VARIANT_TYPE("a{sv}"));
-    GVariant *builder = g_variant_new_from_data(G_VARIANT_TYPE ("ay"), data, size, TRUE, NULL, NULL);
-    if (builder == NULL) {
+    GVariant *data_v = g_variant_new_from_data(G_VARIANT_TYPE ("ay"), data, size, TRUE, NULL, NULL);
+    if (data_v == NULL) {
         tr_err("Failed to allocate new variant type");
         rc = err->code;
         g_clear_error(&err);
         g_object_unref(charProxy);
         return rc;
     }
-    GVariant *write_value_argument = g_variant_new("(@aya{sv})", builder, build_opt);
+
+    // We pass NULL as last parameter to indicate empty options dictionary
+    GVariant *write_value_argument = g_variant_new("(@aya{sv})", data_v, NULL);
 
     ret = g_dbus_proxy_call_sync(charProxy,
                                  "WriteValue",
@@ -1881,7 +2396,6 @@ int ble_write_characteristic(const char    *characteristic_path,
         tr_info("Successfully wrote %zu bytes to BLE characteristic %s", size, characteristic_path);
     }
 
-    g_variant_builder_clear(&build_opt);
     g_variant_unref(ret);
     g_object_unref(charProxy);
 

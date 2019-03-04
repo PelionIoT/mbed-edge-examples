@@ -15,7 +15,16 @@ The `blept-example` is a protocol translator reference implementation for use wi
 
 The reference implementation uses BlueZ Bluetooth daemon to implement Bluetooth connectivity. The protocol translator implements a DBus client by using the GLib library. The DBus client accesses the BlueZ DBus API. The GLib event loop is used to synchronise access to the shared data between the DBus client and the protocol translator callbacks by moving the callback logic into GLib events. Additionally, the GLib event loop is used to schedule periodic characteristic value polling.
 
-Only connectable and pairable devices are supported. Device discovery is done continuously using active scanning. Two device discovery modes are implemented, the default mode and extended discovery mode. In the default mode the devices are identified only based on the primary services they advertise. For device to be identified it must advertise one of the services defined in the `ble_services` array (see [pt_ble_supported_translations.c](pt_ble_supported_translations.c)). In the extended discovery mode additional logic can be implemented to identify devices that don't advertise their services. An example extended discovery logic is provided that identifies devices based on their device name. All identified devices are connected to.
+Only connectable and pairable devices are supported. Device discovery is done continuously using active scanning. Two device discovery modes are implemented:
+
+1. Default mode (May be disabled using Extended discovery mode).
+2. Extended discovery mode (`--extended-discovery-file <file-path>`).
+
+In the default mode the devices are identified only based on the primary services they advertise. The default mode is disabled if the extended discovery mode is used. For the device to be identified in default mode, it must advertise one of the services defined in the `ble_services` array (see [pt_ble_supported_translations.c](pt_ble_supported_translations.c)).
+
+In the extended discovery mode additional logic can be implemented to identify devices that don't advertise their services. Currently extended discovery is done based on a JSON configuration file containing a whitelist in which the user may add either full match or partial match device name patterns. The file name can be given using the `--extended-discovery-file` command-line parameter. For more information, see the documentation in `blept_example.docopt` or the command-line help using `blept-example --help`.
+
+The device will be connected when it's identified either using the default or the extended discovery mode.
 
 When a connection is initiated, the GATT service discovery is performed by the BlueZ daemon. After service discovery has finished the LwM2M resources are created in the protocol translator. A service object (id 18135) instance is created for each service and a resource is created for each characteristic belonging to that service. A mapping from the service object resources to the characteristic is added to JSON introspection resource /18131/0/0. Additionally a translation into specific supported LwM2M objects and resources is done based on a static translation table according to the 128-bit Universally Unique Identifier (UUID) for the service or characteristic. After the service translation has been instantiated the device is registered and it appears in the Device Management. Characteristic values for all registered devices are polled with a 5 second interval. You can configure the interval with the `BLE_VALUE_READ_INTERVAL` macro. See [pt_ble.c](pt_ble.c) for more information.
 
@@ -217,7 +226,7 @@ For Resources that can change later or can be written to, you have to define an 
 
 ### Adding new devices
 
-The devices to translate are identified by their advertised services or by name when using the extended discovery mode. Additional identification logic for extended discovery mode can be implemented in the `ble_identify_custom_device` function (see [pt_ble.c](pt_ble.c)). A translated device will become visible in Device Management with a name consisting of a prefix (default is `BLE_DEV` see `BLE_DEV` macro in [pt_ble.c](pt_ble.c)), the Bluetooth MAC address and a postfix (passed in as command line parameter), for example `BLE_DEV-12:34:56:78:9A:BC-postfix`.
+The devices to translate are identified by their advertised services or by name when using the extended discovery mode. Additional identification logic for extended discovery mode can be implemented in the `ble_identify_custom_device` function (see [pt_ble.c](pt_ble.c)). A translated device will become visible in Device Management with a name consisting of a prefix (default is `BLE` see `BLE_DEV` macro in [pt_ble.c](pt_ble.c)), the Bluetooth MAC address and a postfix (passed in as command line parameter), for example `BLE_DEV-12:34:56:78:9A:BC-postfix`.
 
 ### Running the protocol translator
 

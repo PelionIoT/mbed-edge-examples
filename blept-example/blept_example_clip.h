@@ -34,13 +34,13 @@ typedef struct {
     /* options without arguments */
     int clear_cache;
     int color_log;
-    int extended_discovery_mode;
     int help;
     /* options with arguments */
     char *address;
     char *bluetooth_interface;
     char *edge_domain_socket;
     char *endpoint_postfix;
+    char *extended_discovery_file;
     char *protocol_translator_name;
     /* special */
     const char *usage_pattern;
@@ -51,24 +51,31 @@ const char help_message[] =
 "BLE Protocol Translator Example.\n"
 "\n"
 "Usage:\n"
-"  blept-example --protocol-translator-name <name> [--endpoint-postfix <name>] [--edge-domain-socket <domain-socket>] [--color-log] [--bluetooth-interface <bluetooth-interface>] [--address <dbus-address>] [--clear-cache] [--extended-discovery-mode]\n"
+"  blept-example --protocol-translator-name <name> [--endpoint-postfix <name>] [--edge-domain-socket <domain-socket>] [--color-log] [--bluetooth-interface <bluetooth-interface>] [--address <dbus-address>] [--clear-cache] [--extended-discovery-file <string>]\n"
 "  blept-example --help\n"
 "\n"
 "Options:\n"
-"  -h --help                                 Show this screen.\n"
-"  -n --protocol-translator-name <name>      Name of the Protocol Translator.\n"
-"  -e --endpoint-postfix <postfix>           Name for the endpoint postfix [default: -0]\n"
-"  --edge-domain-socket <string>             Edge Core domain socket path [default: /tmp/edge.sock].\n"
-"  --color-log                               Use ANSI colors in log.\n"
-"  -b --bluetooth-interface <string>         HCI transport interface [default: hci0].\n"
-"  -a --address <string>                     DBus server address [default: unix:path=/var/run/dbus/system_bus_socket].\n"
-"  -c --clear-cache                          Clear BlueZ device cache before starting active scan.\n"
-"  -d --extended-discovery-mode              Use extended discovery mode which allows discovering devices that don't advertise their services.\n"
+"  -h --help                                  Show this screen.\n"
+"  -n --protocol-translator-name <name>       Name of the Protocol Translator.\n"
+"  -e --endpoint-postfix <postfix>            Name for the endpoint postfix [default: -0]\n"
+"  --edge-domain-socket <string>              Edge Core domain socket path [default: /tmp/edge.sock].\n"
+"  --color-log                                Use ANSI colors in log.\n"
+"  -b --bluetooth-interface <string>          HCI transport interface [default: hci0].\n"
+"  -a --address <string>                      DBus server address [default: unix:path=/var/run/dbus/system_bus_socket].\n"
+"  -c --clear-cache                           Clear BlueZ device cache before starting active scan.\n"
+"  -d --extended-discovery-file <string>      Path to extended discovery configuration file. When using this option, BLE Protocol Translator Example\n"
+"                                             connects to devices based on configuration in this file. Currently it supports `whitelisted-devices`\n"
+"                                             list. Each entry in the list contains a match string `name`. It may be a full match or partial match,\n"
+"                                             specified by the `partial-match` name-value. If partial match is used, a substring in the `name` value\n"
+"                                             is enough to be able to connect the device. Otherwise the name needs to match exactly to connect the\n"
+"                                             device. The file is in json format.\n"
+"                                             Example: '{\"whitelisted-devices\":[{\"name\":\"Thunder Sense\", \"partial-match\" : 1}]}'\n"
+"                                             Note: using extended discovery mode disables the default mode to discover devices based on supported advertised services.\n"
 "";
 
 const char usage_pattern[] =
 "Usage:\n"
-"  blept-example --protocol-translator-name <name> [--endpoint-postfix <name>] [--edge-domain-socket <domain-socket>] [--color-log] [--bluetooth-interface <bluetooth-interface>] [--address <dbus-address>] [--clear-cache] [--extended-discovery-mode]\n"
+"  blept-example --protocol-translator-name <name> [--endpoint-postfix <name>] [--edge-domain-socket <domain-socket>] [--color-log] [--bluetooth-interface <bluetooth-interface>] [--address <dbus-address>] [--clear-cache] [--extended-discovery-file <string>]\n"
 "  blept-example --help";
 
 typedef struct {
@@ -292,8 +299,6 @@ int elems_to_args(Elements *elements, DocoptArgs *args, bool help,
             args->clear_cache = option->value;
         } else if (!strcmp(option->olong, "--color-log")) {
             args->color_log = option->value;
-        } else if (!strcmp(option->olong, "--extended-discovery-mode")) {
-            args->extended_discovery_mode = option->value;
         } else if (!strcmp(option->olong, "--help")) {
             args->help = option->value;
         } else if (!strcmp(option->olong, "--address")) {
@@ -308,6 +313,9 @@ int elems_to_args(Elements *elements, DocoptArgs *args, bool help,
         } else if (!strcmp(option->olong, "--endpoint-postfix")) {
             if (option->argument)
                 args->endpoint_postfix = option->argument;
+        } else if (!strcmp(option->olong, "--extended-discovery-file")) {
+            if (option->argument)
+                args->extended_discovery_file = option->argument;
         } else if (!strcmp(option->olong, "--protocol-translator-name")) {
             if (option->argument)
                 args->protocol_translator_name = option->argument;
@@ -331,8 +339,8 @@ int elems_to_args(Elements *elements, DocoptArgs *args, bool help,
 
 DocoptArgs docopt(int argc, char *argv[], bool help, const char *version) {
     DocoptArgs args = {
-        0, 0, 0, 0, (char*) "unix:path=/var/run/dbus/system_bus_socket", (char*)
-        "hci0", (char*) "/tmp/edge.sock", (char*) "-0", NULL,
+        0, 0, 0, (char*) "unix:path=/var/run/dbus/system_bus_socket", (char*)
+        "hci0", (char*) "/tmp/edge.sock", (char*) "-0", NULL, NULL,
         usage_pattern, help_message
     };
     Tokens ts;
@@ -343,12 +351,12 @@ DocoptArgs docopt(int argc, char *argv[], bool help, const char *version) {
     Option options[] = {
         {"-c", "--clear-cache", 0, 0, NULL},
         {NULL, "--color-log", 0, 0, NULL},
-        {"-d", "--extended-discovery-mode", 0, 0, NULL},
         {"-h", "--help", 0, 0, NULL},
         {"-a", "--address", 1, 0, NULL},
         {"-b", "--bluetooth-interface", 1, 0, NULL},
         {NULL, "--edge-domain-socket", 1, 0, NULL},
         {"-e", "--endpoint-postfix", 1, 0, NULL},
+        {"-d", "--extended-discovery-file", 1, 0, NULL},
         {"-n", "--protocol-translator-name", 1, 0, NULL}
     };
     Elements elements = {0, 0, 9, commands, arguments, options};

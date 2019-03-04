@@ -31,8 +31,11 @@
 #include <assert.h>
 #include <arpa/inet.h>
 #include <stdio.h>
+#include <sys/time.h>
 
-#define LIFETIME        300
+#define LIFETIME                                                                                                       \
+    300 // this setting currently has no effect. The translated endpoints are tracked withing the parent Edge device
+        // lifetime. Please see BLE_MAX_BACK_OFF_TIME_SECS for related configuration.
 #define TRACE_GROUP     "BLEC"
 
 // ============================================================================
@@ -47,7 +50,7 @@ pt_api_mutex_t *g_pt_mutex = NULL;
 
 size_t devices_make_device_id(char *out_buf, size_t out_size, const char *prefix, const char *ble_id, const char *postfix)
 {
-    return snprintf(out_buf, out_size, "%s-%s%s", prefix, ble_id, postfix);
+    return snprintf(out_buf, out_size, "%s-%s-%s", prefix, ble_id, postfix);
 }
 
 /**
@@ -101,25 +104,46 @@ static void map_uuid_to_datatype(const char   *uuid,
     }
 }
 
-int device_is_registered(struct ble_device *ble)
+bool device_is_connected(struct ble_device *ble)
 {
+    bool ret_value;
     device_mutex_lock(ble);
-    int flags = ble->flags & BLE_DEVICE_FLAG_REGISTERED;
+    ret_value = (ble->flags & BLE_DEVICE_FLAG_CONNECTED) != 0;
     device_mutex_unlock(ble);
-    return flags;
+    return ret_value;
 }
 
-void device_set_registered(struct ble_device *ble, int is_registered)
+void device_set_connected(struct ble_device *ble, bool is_connected)
 {
-    tr_debug("--> device_set_registered");
+    tr_debug("    device_set_connected device_id: '%s' connected: %d", ble->device_id, is_connected);
     device_mutex_lock(ble);
-    if (1 == is_registered) {
+    if (is_connected) {
+        ble->flags |= BLE_DEVICE_FLAG_CONNECTED;
+    } else {
+        ble->flags &= ~BLE_DEVICE_FLAG_CONNECTED;
+    }
+    device_mutex_unlock(ble);
+}
+
+bool device_is_registered(struct ble_device *ble)
+{
+    bool ret_value;
+    device_mutex_lock(ble);
+    ret_value = (ble->flags & BLE_DEVICE_FLAG_REGISTERED) != 0;
+    device_mutex_unlock(ble);
+    return ret_value;
+}
+
+void device_set_registered(struct ble_device *ble, bool is_registered)
+{
+    tr_debug("    device_set_registered device_id: '%s' registered: %d", ble->device_id, is_registered);
+    device_mutex_lock(ble);
+    if (is_registered) {
         ble->flags |= BLE_DEVICE_FLAG_REGISTERED;
-    } else if (0 == is_registered) {
+    } else {
         ble->flags &= ~BLE_DEVICE_FLAG_REGISTERED;
     }
     device_mutex_unlock(ble);
-    tr_debug("<-- device_set_registered");
 }
 
 pthread_mutex_t *devices_get_mutex()
@@ -133,35 +157,57 @@ ble_device_list_t *devices_get_list()
 }
 
 /**
+ * \brief Find the device by DBUS object path from the devices list.
+ *
+ * \param dbus_path The DBUS object path.
+ * \return The device if found.\n
+ *         NULL is returned if the device is not found.
+ */
+struct ble_device *devices_find_device_by_dbus_path(const char *dbus_path)
+{
+    struct ble_device *ble = NULL;
+
+    ns_list_foreach(struct ble_device, dev, devices_get_list())
+    {
+        if (0 == strcmp(dev->dbus_path, dbus_path)) {
+            ble = dev;
+            break;
+        }
+    }
+
+    tr_debug("< devices_find_device_by_dbus_path dbus_path: '%s' device: %p", dbus_path, ble);
+
+    return ble;
+}
+
+/**
  * \brief Find the device by device id from the devices list.
  *
  * \param device_id The device identifier.
  * \return The device if found.\n
  *         NULL is returned if the device is not found.
  */
-struct ble_device *devices_find_device(const char* device_id)
+struct ble_device *devices_find_device_by_device_id(const char *device_id)
 {
-    tr_debug("--> devices_find_device");
-
     struct ble_device *ble = NULL;
 
     ns_list_foreach(struct ble_device, dev, devices_get_list()) {
-        tr_debug("    dev = %p", dev);
-        tr_debug("    dev->device_id = %s", dev->device_id);
-        if (strncmp(dev->device_id, device_id, strlen(device_id)) == 0) {
-            tr_debug("<-- devices_find_device");
-            pthread_mutex_unlock(devices_get_mutex());
-            return dev;
+        if (0 == strcmp(dev->device_id, device_id)) {
+            ble = dev;
+            break;
         }
     }
 
-    tr_debug("<-- devices_find_device");
+    tr_debug("< devices_find_device_by_device_id device_id: '%s' device: %p", device_id, ble);
 
     return ble;
 }
 
 static void device_free_char(struct ble_gatt_char *chara)
 {
+#if 1 == EXPERIMENTAL_NOTIFY_CHARACTERISTIC_SUPPORT
+    ble_characteristic_stop_notify_proxy(chara);
+#endif // EXPERIMENTAL_NOTIFY_CHARACTERISTIC_SUPPORT
     free(chara->dbus_path);
     free(chara->value);
 }
@@ -185,10 +231,20 @@ static void device_free_services(struct ble_device *ble)
     free(ble->attrs.services);
 }
 
-void device_free(struct ble_device *ble)
+void device_stop_retry_timer(struct ble_device *ble)
+{
+    if (0 != ble->retry_timer_source) {
+        g_source_remove(ble->retry_timer_source);
+        ble->retry_timer_source = 0;
+    }
+}
+
+static void device_free(struct ble_device *ble)
 {
     free(ble->dbus_path);
+    device_stop_retry_timer(ble);
     if (ble->proxy != NULL) {
+        tr_debug("deleting device proxy %p for device %p device_id: '%s'", ble->proxy, ble, ble->device_id);
         g_object_unref(ble->proxy);
     }
     device_free_services(ble);
@@ -200,16 +256,13 @@ void device_free(struct ble_device *ble)
 
 void devices_del_device(struct ble_device *ble)
 {
-    tr_debug("--> devices_del_device");
+    tr_debug("> devices_del_device %p device_id: '%s'", ble, ble->device_id);
 
     //TODO: Be sure that device mutex is not in locked state.
     pthread_mutex_destroy(&ble->mutex);
 
     ns_list_remove(devices_get_list(), ble);
     device_free(ble);
-
-    tr_debug("<-- devices_del_device");
-
 }
 
 static pt_status_t
@@ -242,6 +295,7 @@ devices_create_pt_device(const char *device_id,
                          const char *serial_number,
                          const char *device_type)
 {
+    tr_debug("    devices_create_pt_device device_id: '%s'", device_id);
     return edge_create_device(device_id, manufacturer, model_number, serial_number, device_type, LIFETIME, devices_reboot_callback);
 }
 
@@ -264,18 +318,32 @@ int devices_init()
     return 0;
 }
 
-void devices_free()
+static uint64_t seconds_since_epoch()
 {
+    struct timeval tv;
+    gettimeofday(&tv, NULL);
+    return (uint64_t)(tv.tv_sec);
+}
+
+uint64_t devices_duration_in_sec_since_last_connection(struct ble_device *ble_dev)
+{
+    return seconds_since_epoch() - ble_dev->last_connected_timestamp_secs;
+}
+
+void device_update_last_connected_timestamp(struct ble_device *ble_dev)
+{
+    ble_dev->last_connected_timestamp_secs = seconds_since_epoch();
 }
 
 struct ble_device *device_create(const char *addr)
 {
     struct ble_device *ble;
-    ble = malloc(sizeof(*ble));
+    tr_debug("> device_create addr: %s", addr);
+    ble = malloc(sizeof(struct ble_device));
     assert(NULL != ble);
-    memset(ble, 0, sizeof(*ble));
+    memset(ble, 0, sizeof(struct ble_device));
     strncpy(ble->attrs.addr, addr, sizeof ble->attrs.addr);
-
+    device_update_last_connected_timestamp(ble);
     ns_list_init(&(ble->translations));
 
     //init our mutex
@@ -284,6 +352,7 @@ struct ble_device *device_create(const char *addr)
     pthread_mutexattr_init(&Attr);
     pthread_mutexattr_settype(&Attr, PTHREAD_MUTEX_RECURSIVE);
     pthread_mutex_init(&ble->mutex, &Attr);
+    tr_debug("< device_create ble: %p device_id: '%s'", ble, ble->device_id);
 
     return ble;
 }
@@ -295,8 +364,6 @@ static struct ble_gatt_service *get_service(struct ble_device *ble,
                                             const char *uuid)
 {
     int svc;
-
-    //pthread_mutex_lock(&ble->mutex);
 
     for (svc = 0; svc < ble->attrs.services_count; svc++ ) {
         if (0 == strncmp(ble->attrs.services[svc].uuid, uuid, sizeof ble->attrs.services[svc].uuid)) {
@@ -323,8 +390,10 @@ static struct ble_gatt_char *add_char_to_service(struct ble_gatt_service *srvc,
                                                  int properties,
                                                  BLE_DATATYPE dtype,
                                                  size_t dsize,
-                                                 uint16_t resource_id)
+                                                 uint16_t resource_id,
+                                                 GDBusProxy *proxy)
 {
+    tr_debug("    add_char_to_service uuid: %s, dbus_path: %s, proxy: %p", uuid, dbus_path, proxy);
     int ch = srvc->chars_count;
     // BUG: we lose the previous pointer if realloc fails, causing a memory leak
     srvc->chars = realloc(srvc->chars, (ch + 1) * sizeof(struct ble_gatt_char));
@@ -344,6 +413,7 @@ static struct ble_gatt_char *add_char_to_service(struct ble_gatt_service *srvc,
     srvc->chars[ch].value_length = 0;
     srvc->chars[ch].value_size = dsize;
     srvc->chars[ch].dtype = dtype;
+    srvc->chars[ch].proxy = proxy;
     /*Note: Need to insure resource id's are unque for a given service
       If no resource_id is specified firm map code this is done by setting
       resource id equal to the index int the characteristic array.*/
@@ -361,7 +431,8 @@ struct ble_gatt_char * device_add_gatt_characteristic(struct ble_device *ble,
                                                       const char *srvc_dbus_path,
                                                       const char *char_uuid,
                                                       const char *char_dbus_path,
-                                                      int char_properties)
+                                                      int char_properties,
+                                                      GDBusProxy *proxy)
 {
     BLE_DATATYPE dtype;
     size_t dsize;
@@ -376,7 +447,7 @@ struct ble_gatt_char * device_add_gatt_characteristic(struct ble_device *ble,
 
     tr_debug("--> device_add_gatt_characteristic(%p, %s, %s, %s, %d)", ble, srvc_uuid, char_uuid, char_dbus_path, char_properties);
     map_uuid_to_datatype(char_uuid, &dtype, &dsize, &resource_id);
-    ret = add_char_to_service(srvc, char_uuid, char_dbus_path, char_properties, dtype, dsize, resource_id);
+    ret = add_char_to_service(srvc, char_uuid, char_dbus_path, char_properties, dtype, dsize, resource_id, proxy);
     tr_debug("<-- device_add_gatt_characteristic");
 
     return ret;
@@ -390,8 +461,8 @@ int device_add_resources_from_gatt(struct ble_device *ble)
     struct ble_gatt_service *s;
 
     attrs = &ble->attrs;
-    tr_debug("--> device_add_resources_from_gatt");
-    tr_info("adding LwM2M resources for device %s", attrs->addr);
+    tr_debug("--> device_add_resources_from_gatt device_id: '%s'", ble->device_id);
+    tr_info("    adding LwM2M resources for device %s", attrs->addr);
 
     tr_info("    service count: %d", attrs->services_count);
     for (int instance = 0; instance < attrs->services_count; ++instance) {
@@ -410,8 +481,12 @@ int device_add_resources_from_gatt(struct ble_device *ble)
             if (c->properties & BLE_GATT_PROP_PERM_WRITE) {
                 ops |= OPERATION_WRITE;
             }
-            tr_info("mapping ble char %s into lwm2m resource /%d/%d/%d with RW properties %d",
-                    c->dbus_path, IPSO_OID_BLE_SERVICE, instance, c->resource_id, ops);
+            tr_info("    mapping ble char %s into lwm2m resource /%d/%d/%d with RW properties %d",
+                    c->dbus_path,
+                    IPSO_OID_BLE_SERVICE,
+                    instance,
+                    c->resource_id,
+                    ops);
             Lwm2mResourceType rtype;
             switch (c->dtype) {
             case BLE_BOOLEAN:
@@ -440,8 +515,10 @@ int device_add_resources_from_gatt(struct ble_device *ble)
                                    ops,
                                    c->value,
                                    c->value_size)) {
-                tr_err("Failed to create resource /%d/%d for service UUID %s",
-                       IPSO_OID_BLE_SERVICE, instance, s->uuid);
+                tr_err("    Failed to create resource /%d/%d for service UUID %s",
+                       IPSO_OID_BLE_SERVICE,
+                       instance,
+                       s->uuid);
                 continue;
             }
         }
@@ -460,8 +537,7 @@ int device_add_resources_from_gatt(struct ble_device *ble)
                            OPERATION_READ,
                            (uint8_t *)ble->json_list,
                            strlen(ble->json_list) + 1)) {
-        tr_err("Failed to create introspection resource /%d/0/0",
-               IPSO_OID_BLE_INTROSPECT);
+        tr_err("    Failed to create introspection resource /%d/0/0", IPSO_OID_BLE_INTROSPECT);
     }
 
     tr_debug("<-- device_add_resources_from_gatt");
@@ -476,8 +552,8 @@ int device_add_known_translations_from_gatt(struct ble_device *ble)
     struct ble_gatt_service *s;
 
     attrs = &ble->attrs;
-    tr_debug("--> device_add_known_translations_from_gatt");
-    tr_info("adding LwM2M resources for device %s", attrs->addr);
+    tr_debug("--> device_add_known_translations_from_gatt device_id: '%s'", ble->device_id);
+    tr_info("    adding LwM2M resources for device %s", attrs->addr);
 
     for (int i = 0; i < attrs->services_count; ++i) {
         s = &attrs->services[i];
@@ -630,12 +706,9 @@ void device_write_values_to_pt(struct ble_device *dev)
 
 void device_register_device(struct ble_device *dev)
 {
-    edge_register_device(dev->device_id);
-}
-
-void device_unregister_device(struct ble_device *dev)
-{
-    edge_unregister_device(dev);
+    if (!device_is_registered(dev)) {
+        edge_register_device(dev->device_id);
+    }
 }
 
 char *json_list_device_services(struct ble_device *ble)

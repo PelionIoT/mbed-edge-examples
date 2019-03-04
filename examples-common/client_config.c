@@ -43,7 +43,7 @@ pt_device_t *client_config_create_device_with_userdata(const char *device_id,
     sprintf(endpoint_id, "%s%s", device_id, endpoint_postfix);
     pt_device_t *device = pt_create_device_with_userdata(endpoint_id, LIFETIME, QUEUE, &status, userdata);
     if (status != PT_STATUS_SUCCESS) {
-        tr_err("Could not allocate device structure.");
+        tr_err("Could not allocate device structure. status: %d", status);
         return NULL;
     }
     return device;
@@ -140,7 +140,7 @@ pt_device_list_t *client_config_create_device_list(const char *endpoint_postfix)
             sprintf(thermometer_id, "%s%s", thermometer_prefix, endpoint_postfix);
             device = pt_create_device(thermometer_id, LIFETIME, QUEUE, &status);
             if (status != PT_STATUS_SUCCESS) {
-                tr_err("Could not allocate device structure.");
+                tr_err("Could not allocate device structure. status: %s", status);
                 return NULL;
             }
             ipso_create_sensor_object(device, TEMPERATURE_SENSOR, "CEL",  NULL);
@@ -149,7 +149,7 @@ pt_device_list_t *client_config_create_device_list(const char *endpoint_postfix)
             sprintf(thermostat_id, "%s%s", thermostat_prefix, endpoint_postfix);
             device = pt_create_device(thermostat_id, LIFETIME, QUEUE, &status);
             if (status != PT_STATUS_SUCCESS) {
-                tr_err("Could not allocate device structure.");
+                tr_err("Could not allocate device structure. statis: %s", status);
                 return NULL;
             }
             ipso_create_set_point(device, 0, 25);

@@ -40,6 +40,7 @@
 #include <signal.h>
 #include <string.h>
 #include <sys/syscall.h>
+#include <edge_examples_version_info.h>
 
 // ============================================================================
 // Enums, Structs and Defines
@@ -61,60 +62,6 @@ volatile int global_keep_running = 0;
 // Code
 // ============================================================================
 
-void shutdown_and_cleanup()
-{
-    tr_info("starting shutdown");
-    g_idle_add(pt_ble_graceful_shutdown, NULL);
-}
-
-/**
- * \brief The client shutdown handler.
- *
- * \param signum The signal number that initiated the shutdown handler.
- */
-static void shutdown_handler(int signum)
-{
-    (void)signum;
-    tr_info("Shutdown handler from signal %d", signum);
-
-    shutdown_and_cleanup();
-}
-/**
- * \brief Set up the signal handler for catching signals from OS.
- * This signal handler setup catches SIGTERM and SIGINT for shutting down
- * the protocol translator client gracefully.
- */
-static bool setup_signals(void)
-{
-    struct sigaction sa = { .sa_handler = shutdown_handler, };
-    struct sigaction sa_pipe = { .sa_handler = SIG_IGN, };
-    int ret_val;
-
-    if (sigemptyset(&sa.sa_mask) != 0) {
-        return false;
-    }
-    if (sigaction(SIGTERM, &sa, NULL) != 0) {
-        return false;
-    }
-    if (sigaction(SIGINT, &sa, NULL) != 0) {
-        return false;
-    }
-    ret_val = sigaction(SIGPIPE, &sa_pipe, NULL);
-    if (ret_val != 0) {
-        tr_warn("setup_signals: sigaction with SIGPIPE returned error=(%d) errno=(%d) strerror=(%s)",
-                ret_val,
-                errno,
-                strerror(errno));
-    }
-#ifdef DEBUG
-    tr_info("Setting support for SIGUSR2");
-    if (sigaction(SIGUSR2, &sa, NULL) != 0) {
-        return false;
-    }
-#endif
-    return true;
-}
-
 /**
  * \brief Main entry point to the mept-ble application.
  *
@@ -133,7 +80,9 @@ static bool setup_signals(void)
 int main(int argc, char **argv)
 {
     protocol_translator_api_start_ctx_t ctx;
+    int service_based_discovery = 1;
     DocoptArgs args = docopt(argc, argv, /* help */ 1, /* version */ "0.1");
+    setvbuf(stdout, NULL, _IOLBF, BUFSIZ);
     edge_trace_init(args.color_log);
 
     if (!args.protocol_translator_name) {
@@ -142,6 +91,8 @@ int main(int argc, char **argv)
     }
 
     tr_info("Starting mept-ble MbedEdge Protocol Translator for BLE");
+    tr_info("Version: %s", VERSION_STRING);
+    tr_info("Binary built at: " __DATE__ " " __TIME__);
     tr_info("Main thread id is %lx", pthread_self());
 
     global_keep_running = 1;
@@ -149,7 +100,7 @@ int main(int argc, char **argv)
     devices_init();
 
     /* Setup signal handler to catch SIGINT for shutdown */
-    if (!setup_signals()) {
+    if (!pt_ble_setup_signals()) {
         tr_err("Failed to setup signals.");
         return 1;
     }
@@ -158,13 +109,22 @@ int main(int argc, char **argv)
     ctx.socket_path = args.edge_domain_socket;
 
     start_protocol_translator_api(&ctx);
-    ble_start(args.endpoint_postfix, args.bluetooth_interface, args.address, args.clear_cache, args.extended_discovery_mode);
+    if (args.extended_discovery_file) {
+        service_based_discovery = 0;
+    }
+
+    int ret_val = ble_start(args.endpoint_postfix,
+                            args.bluetooth_interface,
+                            args.address,
+                            args.clear_cache,
+                            args.extended_discovery_file,
+                            service_based_discovery);
+    if (0 != ret_val) {
+        tr_err("ble_start returned error code %d", ret_val);
+    }
 
     tr_info("pt_client_shutdown");
     stop_protocol_translator_api();
-
-    tr_info("devices_free");
-    devices_free();
 
     tr_info("Main thread waiting for protocol translator api to stop.");
     /* Note: to avoid a leak, we should join the created thread from

@@ -29,10 +29,12 @@
 
 #define BLE_ADDRESS_MAX_LENGTH 20
 #define BLE_DEVICE_FLAG_REGISTERED (1 << 0)
+#define BLE_DEVICE_FLAG_CONNECTED  (1 << 1)
 
 /* BLE GATT R/W permissions */
 #define BLE_GATT_PROP_PERM_READ    (1 << 0)
 #define BLE_GATT_PROP_PERM_WRITE   (1 << 1)
+#define BLE_GATT_PROP_PERM_NOTIFY  (1 << 2)
 
 /* BLE GATT Encryption flags */
 #define BLE_GATT_PROP_ENC_NONE     (1 << 2)
@@ -51,6 +53,12 @@
 #define FAKE_CHAR2_UUID "11121314-1516-1718-191a-1b1c1d1e1f20"
 #endif
 
+typedef enum ble_device_type_ {
+    BLE_DEVICE_UNKNOWN,
+    BLE_DEVICE_PERSISTENT_GATT_SERVER, // Device with GATT server and persistent connection
+    BLE_DEVICE_GAP_ADVERTISEMENT_ONLY  // Device with GAP advertisement only
+} ble_device_type;
+
 typedef enum ble_datatype {
     BLE_BOOLEAN = 1,
     BLE_INTEGER = 2,
@@ -66,6 +74,7 @@ struct ble_gatt_char {
     char *dbus_path;
     BLE_DATATYPE dtype;
     uint16_t resource_id;
+    GDBusProxy *proxy;
     uint8_t *value;
     size_t value_size; //allocated size for value
     size_t value_length; //actual length of store data (<= value_size)
@@ -99,13 +108,22 @@ typedef NS_LIST_HEAD(struct translation_context, link) translation_context_list_
 struct ble_device {
     pthread_mutex_t mutex;
     ns_list_link_t link;
+    // Used to remove the context when we cannot connect for a long time.
+    uint64_t last_connected_timestamp_secs;
+    // When the device is connected, we register it.
+    // If the device gets disconnected, we try to reconnect to it and
+    // it stays registered until max backoff time is reached.
     int flags;
     char *device_id;
     GDBusProxy *proxy;
     struct ble_attrs attrs;
     char *dbus_path;
     char *json_list;
+    ble_device_type device_type;
     translation_context_list_t translations;
+    guint retry_timer_source;
+    int connection_retries;
+    bool services_resolved;
 };
 
 typedef NS_LIST_HEAD(struct ble_device, link) ble_device_list_t;
@@ -162,7 +180,8 @@ pthread_mutex_t *devices_get_mutex();
 
 ble_device_list_t *devices_get_list();
 
-struct ble_device *devices_find_device(const char* device_id);
+struct ble_device *devices_find_device_by_dbus_path(const char *dbus_path);
+struct ble_device *devices_find_device_by_device_id(const char *device_id);
 
 /* free */
 void devices_del_device(struct ble_device *);
@@ -173,21 +192,32 @@ size_t devices_make_device_id(char *out_buf,
                               const char *ble_id,
                               const char *postfix);
 
+uint64_t devices_duration_in_sec_since_last_connection(struct ble_device *ble_dev);
+void device_update_last_connected_timestamp(struct ble_device *ble_dev);
+
 bool devices_create_pt_device(const char *device_id,
                               const char *manufacturer,
                               const char *model_number,
                               const char *serial_number,
                               const char *device_type);
 
-/* returns 1 if registered successfully with mbed edge */
-int device_is_registered(struct ble_device *);
+void device_stop_retry_timer(struct ble_device *);
 
-/* sets the is_registered state of the device
+/* Returns true if registered successfully with Edge and false otherwise. */
+bool device_is_registered(struct ble_device *);
+
+/* Sets the registered state of the device
  *
- * is_registered: 1 = has successfully registered with mbed edge
- *                2 = has not registered with mbed edge
+ * is_registered: true  = has successfully registered with Edge
+ *                false = has not registered with Edge
  */
-void device_set_registered(struct ble_device *, int is_registered);
+void device_set_registered(struct ble_device *, bool is_registered);
+
+/* Returns true if BLE device is currently connected. Otherwise it returns false. */
+bool device_is_connected(struct ble_device *ble);
+
+/* Used to set current connected state of the device */
+void device_set_connected(struct ble_device *ble, bool is_connected);
 
 struct ble_device *device_create(const char *addr);
 
@@ -196,8 +226,8 @@ struct ble_gatt_char * device_add_gatt_characteristic(struct ble_device *ble,
                                                       const char *srvc_dbus_path,
                                                       const char *char_uuid,
                                                       const char *char_dbus_path,
-                                                      int char_properties);
-
+                                                      int char_properties,
+                                                      GDBusProxy *proxy);
 
 int device_add_resources_from_gatt(struct ble_device *ble);
 
@@ -218,7 +248,6 @@ void device_update_characteristic_resource_value(struct ble_device *ble,
                                                  const size_t       sz);
 void device_write_values_to_pt(struct ble_device *ble);
 void device_register_device(struct ble_device *dev);
-void device_unregister_device(struct ble_device *dev);
 
 /* return a malloc-ed string containing the json representation of a device's services and characteristics
  * according to the documentation in https://github.com/ARMmbed/ble-lwm2m-translation/blob/master/README.md

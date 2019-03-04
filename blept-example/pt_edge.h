@@ -64,7 +64,9 @@ bool edge_is_connected();
 void edge_write_values();
 bool edge_device_exists(const char *device_id);
 void edge_register_device(const char *device_id);
-void edge_unregister_device(struct ble_device *dev);
+void pt_edge_del_device(struct ble_device *ble_de);
+// Returns true if the call succeeded and false otherwise.
+bool edge_unregister_device(struct ble_device *dev, bool remove_device_context);
 connection_id_t edge_get_connection_id();
 bool edge_create_device(const char *device_id,
                         const char *manufacturer,

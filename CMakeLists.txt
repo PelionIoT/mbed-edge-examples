@@ -1,5 +1,5 @@
 project ("edge-pt-examples" C)
-cmake_minimum_required (VERSION 2.8)
+cmake_minimum_required (VERSION 3.5)
 
 SET (EXECUTABLE_OUTPUT_PATH ${PROJECT_BINARY_DIR}/bin)
 
@@ -12,6 +12,8 @@ find_package (Threads REQUIRED)
 # Utility cmake functions
 # Use the ones in edge to avoid duplication
 include (lib/${EDGE_SOURCES_DIR_NAME}/cmake/common.cmake)
+
+include(git_details.cmake)
 
 # Edge basic configuration
 include (cmake/examples_configure.cmake)

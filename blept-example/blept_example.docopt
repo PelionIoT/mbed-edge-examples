@@ -1,16 +1,23 @@
 BLE Protocol Translator Example.
 
 Usage:
-  blept-example --protocol-translator-name <name> [--endpoint-postfix <name>] [--edge-domain-socket <domain-socket>] [--color-log] [--bluetooth-interface <bluetooth-interface>] [--address <dbus-address>] [--clear-cache] [--extended-discovery-mode]
+  blept-example --protocol-translator-name <name> [--endpoint-postfix <name>] [--edge-domain-socket <domain-socket>] [--color-log] [--bluetooth-interface <bluetooth-interface>] [--address <dbus-address>] [--clear-cache] [--extended-discovery-file <string>]
   blept-example --help
 
 Options:
-  -h --help                                 Show this screen.
-  -n --protocol-translator-name <name>      Name of the Protocol Translator.
-  -e --endpoint-postfix <postfix>           Name for the endpoint postfix [default: -0]
-  --edge-domain-socket <string>             Edge Core domain socket path [default: /tmp/edge.sock].
-  --color-log                               Use ANSI colors in log.
-  -b --bluetooth-interface <string>         HCI transport interface [default: hci0].
-  -a --address <string>                     DBus server address [default: unix:path=/var/run/dbus/system_bus_socket].
-  -c --clear-cache                          Clear BlueZ device cache before starting active scan.
-  -d --extended-discovery-mode              Use extended discovery mode which allows discovering devices that don't advertise their services.
+  -h --help                                  Show this screen.
+  -n --protocol-translator-name <name>       Name of the Protocol Translator.
+  -e --endpoint-postfix <postfix>            Name for the endpoint postfix [default: -0]
+  --edge-domain-socket <string>              Edge Core domain socket path [default: /tmp/edge.sock].
+  --color-log                                Use ANSI colors in log.
+  -b --bluetooth-interface <string>          HCI transport interface [default: hci0].
+  -a --address <string>                      DBus server address [default: unix:path=/var/run/dbus/system_bus_socket].
+  -c --clear-cache                           Clear BlueZ device cache before starting active scan.
+  -d --extended-discovery-file <string>      Path to extended discovery configuration file. When using this option, BLE Protocol Translator Example
+                                             connects to devices based on configuration in this file. Currently it supports `whitelisted-devices`
+                                             list. Each entry in the list contains a match string `name`. It may be a full match or partial match,
+                                             specified by the `partial-match` name-value. If partial match is used, a substring in the `name` value
+                                             is enough to be able to connect the device. Otherwise the name needs to match exactly to connect the
+                                             device. The file is in json format.
+                                             Example: '{"whitelisted-devices":[{"name":"Thunder Sense", "partial-match" : 1}]}'
+                                             Note: using extended discovery mode disables the default mode to discover devices based on supported advertised services.
