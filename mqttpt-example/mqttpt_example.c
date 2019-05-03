@@ -25,12 +25,13 @@
 #include "ns_list.h"
 #include "common/constants.h"
 #include "pt-client-2/pt_api.h"
+#include "pt-client-2/pt_certificate_api.h"
 #include "mbed-trace/mbed_trace.h"
 #include "examples-common-2/client_config.h"
 #include "mqttpt_example_clip.h"
 #include "common/edge_trace.h"
 
-#define TRACE_GROUP "clnt-example"
+#define TRACE_GROUP "mqtt-example"
 
 #include "jansson.h"
 
@@ -231,6 +232,22 @@ void mqttpt_disconnected_handler(connection_id_t connection_id, void *userdata)
     tr_info("Protocol translator disconnected from the Edge Core.");
 }
 
+void mqtt_certificate_renewal_notification_handler(const connection_id_t connection_id,
+                                                   const char *name,
+                                                   int32_t initiator,
+                                                   int32_t status,
+                                                   const char *description,
+                                                   void *userdata)
+{
+    (void) connection_id;
+    tr_info("Certificate renewal notification from the Edge Core: name: '%s' initiator: %d status: %d description: "
+            "'%s'",
+            name,
+            initiator,
+            status,
+            description);
+}
+
 /*
  * Create the lwm2m structure for a "generic" sensor object. Same resources can be used
  * to represent temperature and humidity sensors by just changing the object id
@@ -285,6 +302,70 @@ bool mqttpt_create_sensor_object(connection_id_t connection_id, const char *deve
 
     return true;
 }
+void certificate_renew_success_handler(const connection_id_t connection_id, void *userdata)
+{
+    tr_info("certificate_renew_success_handler");
+}
+
+void certificate_renew_failure_handler(const connection_id_t connection_id, void *userdata)
+{
+    tr_info("certificate_renew_failure_handler");
+}
+
+static void certificates_set_success_handler(const connection_id_t connection_id, void *userdata)
+{
+    tr_info("certificates_set_success_handler");
+    json_t *json_certificates = (json_t *) userdata;
+    json_t *json_certificate;
+    int32_t index;
+    json_array_foreach(json_certificates, index, json_certificate)
+    {
+        pt_status_t status = pt_certificate_renew(g_connection_id,
+                                                  json_string_value(json_certificate),
+                                                  certificate_renew_success_handler,
+                                                  certificate_renew_failure_handler,
+                                                  NULL);
+        if (PT_STATUS_SUCCESS != status) {
+            tr_err("Renewing certificate failed, status: %d", status);
+        }
+    }
+    json_decref(json_certificates);
+}
+
+static void certificates_set_failure_handler(const connection_id_t connection_id, void *userdata)
+{
+    tr_err("Certificates setting to Edge failed!");
+    json_t *json_certificates = (json_t *) userdata;
+    json_decref(json_certificates);
+}
+
+static void renew_certificates(json_t *json_certificates)
+{
+    tr_info("renew_certificates");
+    json_t *json_certificate;
+    int32_t index;
+    pt_certificate_list_t *list = pt_certificate_list_create();
+    json_array_foreach(json_certificates, index, json_certificate)
+    {
+        const char *certificate = json_string_value(json_certificate);
+        if (certificate) {
+            tr_info("  renewing certificate: %s", certificate);
+            pt_certificate_list_add(list, certificate);
+        } else {
+            tr_err("Invalid json array entry!");
+        }
+    }
+
+    // Save the array
+    json_incref(json_certificates);
+
+    pt_certificate_renewal_list_set(g_connection_id,
+                                    list,
+                                    certificates_set_success_handler,
+                                    certificates_set_failure_handler,
+                                    json_certificates);
+    pt_certificate_list_destroy(list);
+}
 
 /*
  * Functions which translate different types of MQTT messages we receive through mqtt
@@ -302,6 +383,20 @@ void mqttpt_translate_gw_status_message(struct mosquitto *mosq, const char *payl
     if (started == 0) {
         mqttpt_start_translator(mosq);
     }
+    json_t *method = json_object_get(json, "method");
+    if (method) {
+        if (0 == strcmp("renew_certificates", json_string_value(method))) {
+            json_t *params = json_object_get(json, "params");
+            if (params && json_is_array(params)) {
+                renew_certificates(params);
+            } else {
+                tr_err("Invalid params for method: '%s'", json_string_value(method));
+            }
+        } else {
+            tr_err("Unknown GW status method: '%s'", json_string_value(method));
+        }
+    }
+
     json_decref(json);
 }
 
@@ -579,8 +674,8 @@ void mqtt_message_callback(struct mosquitto *mosq, void *userdata, const struct 
         tr_info("mqtt_message_callback: shutting down mosquitto loop.");
     }
     if(message->payloadlen){
-        mqttpt_handle_message(mosq, message->topic, message->payload, message->payloadlen);
         tr_info("%s %s", message->topic, (char *) message->payload);
+        mqttpt_handle_message(mosq, message->topic, message->payload, message->payloadlen);
     }else{
         tr_info("%s (null)", message->topic);
     }
@@ -646,6 +741,7 @@ int main(int argc, char *argv[])
     pt_cbs->connection_ready_cb = mqttpt_connection_ready_handler;
     pt_cbs->connection_shutdown_cb = mqttpt_shutdown_handler;
     pt_cbs->disconnected_cb = mqttpt_disconnected_handler;
+    pt_cbs->certificate_renewal_notifier_cb = mqtt_certificate_renewal_notification_handler;
 
     global_pt_ctx = malloc(sizeof(protocol_translator_api_start_ctx_t));
 

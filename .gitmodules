@@ -1,8 +1,6 @@
 [submodule "lib/docopt.c"]
-	url = git@github.com:docopt/docopt.c.git
 	path = lib/docopt.c
-	branch = refs/heads/master
+	url = git@github.com:docopt/docopt.c.git
 [submodule "lib/mbed-edge"]
 	url = git@github.com:ARMmbed/mbed-edge.git
 	path = lib/mbed-edge
-	branch = refs/heads/master

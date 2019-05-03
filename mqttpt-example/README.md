@@ -69,3 +69,18 @@ For help, use:
 $ mqttpt-example --help
 ```
 
+### Certicicate renewal
+
+MQTT Gateway protocol translator example demonstrates certificate renewal in the gateway.
+To renew a certicate and subscribe to certificate renewal notifications, do the following when the gateway is in
+connected state:
+
+```
+$ mqtt_sim/mqtt_gw_certificates_renew.sh certificate_name
+```
+
+The script supports updating multiple certificates at the same time and the certificate identified by `certificate_name`
+must exist on the device. It's supported to renew factory provisioned certificates, for example ones created byt the FCU
+tool. Renewing developer certificates is not supported. Currently it's possible to renew the `LWM2M` certificate using
+this API. However it's possible that certificate renewal will be limited only to "third party" certificates.
+

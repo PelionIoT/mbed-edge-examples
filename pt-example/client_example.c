@@ -382,6 +382,34 @@ void disconnected_handler(connection_id_t connection_id, void *userdata)
 }
 
 /**
+ * \brief Handles certificate renewal notification.
+ *        This callback will be called to notify the status when a certificate renewal completes.
+ * \param name The name of the certificate.
+ * \param initiator 0 - device initiated the renewal \n
+ *                  1 - cloud initiated the renewal
+ * \param status Status of the certificate renewal.
+ *               0 - for success. \n
+ *               Non-zero if error happened. See error codes in `ce_status_e` in
+ *                   `certificate-enrollment-client/ce_defs.h`.
+ * \param description Description of the status in string form for human readability.
+ * \param userdata. The Userdata which was passed to `pt_client_start`.
+ */
+void certificate_renewal_notification_handler(const connection_id_t connection_id,
+                                              const char *name,
+                                              int32_t initiator,
+                                              int32_t status,
+                                              const char *description,
+                                              void *userdata)
+{
+    (void) connection_id;
+    tr_info("Certificate renewal notification - name: '%s' initiator: %d status: %d description: '%s'",
+            name,
+            initiator,
+            status,
+            description);
+}
+
+/**
  * \brief Implementation of the `pt_connection_shutdown_cb` function prototype
  * for shutting down the client application.
  *
@@ -659,10 +687,11 @@ int main(int argc, char **argv)
         return 1;
     }
     pt_api_init();
-    protocol_translator_callbacks_t pt_cbs;
+    protocol_translator_callbacks_t pt_cbs = {0};
     pt_cbs.connection_ready_cb = connection_ready_handler;
     pt_cbs.disconnected_cb = disconnected_handler;
     pt_cbs.connection_shutdown_cb = shutdown_cb_handler;
+    pt_cbs.certificate_renewal_notifier_cb = certificate_renewal_notification_handler;
 
     g_client = pt_client_create(args.edge_domain_socket,
                                 &pt_cbs);

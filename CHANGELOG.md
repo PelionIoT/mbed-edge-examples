@@ -1,5 +1,9 @@
 # Changelog for Edge examples
 
+## Release 0.9.0 (2019-04-19)
+
+Added certificate renewal for the examples.
+
 ## Release 0.8.0 (2019-02-27)
 
  * BLE PT Example bugfixes.
@@ -7,6 +11,10 @@
    * Fix unsafe signal handler calls to `g_idle_add` by using GLib provided signal handlers.
    * Remove stray call to `pthread_mutex_unlock` in `devices_find_device`.
    * Fix thread safety issues when device is removed from dbus.
+   * Add logic to reconnect to the BLE device if it gets disconnected.
+   * Add functionality to reconnect to the bluetooth daemon if the bluetooth daemon restarts.
+   * Add a json configuration file to extended discovery mode with support to whitelist devices.
+   * Fix a possible jam if starting the BLE PT example fails for example with incorrect parameters.
  * PT example bugfixes.
    * Measures max value reset corrected to `-FLT_MAX`.
  * cmake 3.5 required

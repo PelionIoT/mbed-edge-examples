@@ -91,6 +91,8 @@ EdgePTExample.prototype.registerProtocolTranslator = async function() {
                     // Connection ok. Set up to listen for write calls
                     // from Edge Core.
                     self.exposeWriteMethod();
+                    self.exposeCertificateRenewalStatusMethod();
+                    self.exposeCryptoCertResultMethod();
                     resolve(response);
                 } else {
                     reject(error);
@@ -206,6 +208,54 @@ EdgePTExample.prototype.updateExampleDeviceResources = async function(deviceId) 
     });
 }
 
+EdgePTExample.prototype.addCertificateToList = async function(certificateName) {
+    let self = this;
+    return new Promise((resolve, reject) => {
+
+        params = {
+            certificates: [certificateName]
+        }
+
+        let timeout = setTimeout(() => {
+            reject('Timeout');
+        }, TIMEOUT);
+
+        self.client.send('certificate_renewal_list_set', params,
+                         function(error, response) {
+                             clearTimeout(timeout);
+                             if (!error) {
+                                 resolve(response);
+                             } else {
+                                 reject(error);
+                             }
+                         });
+    });
+}
+
+EdgePTExample.prototype.renewCertificate = async function(certificateName) {
+    let self = this;
+    return new Promise((resolve, reject) => {
+
+        params = {
+            certificate: certificateName
+        }
+
+        let timeout = setTimeout(() => {
+            reject('Timeout');
+        }, TIMEOUT);
+
+        self.client.send('renew_certificate', params,
+                         function(error, response) {
+                             clearTimeout(timeout);
+                             if (!error) {
+                                 resolve(response);
+                             } else {
+                                 reject(error);
+                             }
+                         });
+    });
+}
+
 EdgePTExample.prototype.exposeWriteMethod = function() {
     let self = this;
     self.client.expose('write', (params, response) => {
@@ -235,10 +285,70 @@ EdgePTExample.prototype.exposeWriteMethod = function() {
         console.log(params);
 
         /* Always respond back to Edge, it is expecting
-         * an success response to finish the write/execute action.
+         * a success response to finish the write/execute action.
          * If an error is returned the value write is discarded
          * also in the Edge Core.
          */
+        response(/* no error */ null, /* success */ 'ok');
+    });
+};
+
+EdgePTExample.prototype.exposeCertificateRenewalStatusMethod = function() {
+    let self = this;
+    self.client.expose('certificate_renewal_result', (params, response) => {
+        console.log(GREEN, 'Received certificate renewal result');
+        console.log(params);
+        /* Always respond back to Edge, it is expecting
+         * a success response to finish the certificate renewal notification request.
+         */
+        response(/* no error */ null, /* success */ 'ok');
+    });
+}
+
+EdgePTExample.prototype.cryptoGetCertificate = async function(certificateName) {
+    let self = this;
+    return new Promise((resolve, reject) => {
+        let timeout = setTimeout(() => {
+            reject('Timeout');
+        }, TIMEOUT);
+
+        self.client.send('crypto_get_certificate', {certificate: certificateName},
+                         function(error, response) {
+                             clearTimeout(timeout);
+                             if (!error) {
+                                 resolve(response);
+                             } else {
+                                 reject(error);
+                             }
+                         });
+    });
+}
+
+EdgePTExample.prototype.cryptoGetPublicKey = async function(keyName) {
+    let self = this;
+    return new Promise((resolve, reject) => {
+        let timeout = setTimeout(() => {
+            reject('Timeout');
+        }, TIMEOUT);
+
+        self.client.send('crypto_get_public_key', {key: keyName},
+                         function(error, response) {
+                             clearTimeout(timeout);
+                             if (!error) {
+                                 resolve(response);
+                             } else {
+                                 reject(error);
+                             }
+                         });
+    });
+}
+
+
+EdgePTExample.prototype.exposeCryptoCertResultMethod = function() {
+    let self = this;
+    self.client.expose('crypto_get_certificate_result', (params, response) => {
+        console.log(GREEN, 'Received a write method with data:');
+        console.log(params);
         response(/* no error */ null, /* success */ 'ok');
     });
 };
@@ -284,6 +394,23 @@ const holdProgress = async (message) => {
         await holdProgress('Press any key to update example device values.');
         response = await edge.updateExampleDeviceResources('example-device-1');
         console.log(GREEN, 'Updated the resource values. Response:', response);
+
+        await holdProgress('Press any key to add certificate to certificate renewal list.');
+        response = await edge.addCertificateToList('DLMS');
+        console.log(GREEN, 'Added certificate to list. Response:', response);
+
+        await holdProgress('Press any key to perform certificate renewal. Note: only works if DLMS certificate ' +
+                           'exists in Edge.');
+        response = await edge.renewCertificate('DLMS');
+        console.log(GREEN, 'Performed certificate renewal. Response:', response);
+
+        await holdProgress('Press any key to get certificate from edge.');
+        response = await edge.cryptoGetCertificate('DLMS');
+        console.log(GREEN, 'Get certificate response:', response);
+
+        await holdProgress('Press any key to get public key from edge.');
+        response = await edge.cryptoGetPublicKey('DLMS');
+        console.log(GREEN, 'Get public key response:', response);
 
         await holdProgress('Press any key to unregister the example device.');
         response = await edge.unregisterExampleDevice('example-device-1');
