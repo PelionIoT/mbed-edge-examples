@@ -410,6 +410,25 @@ void certificate_renewal_notification_handler(const connection_id_t connection_i
 }
 
 /**
+ * \brief Handles device certificate renewal requests.
+ *        This callback will be called to request a device to perform certificate enrollment.
+ * \param device_id The device which should perform the enrollment.
+ * \param name The name of the certificate.
+ * \param userdata. The Userdata which was passed to `pt_client_start`.
+ */
+pt_status_t device_certificate_renew_request_handler(const connection_id_t connection_id,
+                                                     const char *device_id,
+                                                     const char *name,
+                                                     void *userdata)
+{
+    (void) connection_id;
+    tr_info("Certificate renewal request  - device: '%s' certificate: '%s'",
+            device_id, name);
+    // Not implemented in this example, so we return error
+    return PT_STATUS_ERROR;
+}
+
+/**
  * \brief Implementation of the `pt_connection_shutdown_cb` function prototype
  * for shutting down the client application.
  *
@@ -692,6 +711,7 @@ int main(int argc, char **argv)
     pt_cbs.disconnected_cb = disconnected_handler;
     pt_cbs.connection_shutdown_cb = shutdown_cb_handler;
     pt_cbs.certificate_renewal_notifier_cb = certificate_renewal_notification_handler;
+    pt_cbs.device_certificate_renew_request_cb = device_certificate_renew_request_handler;
 
     g_client = pt_client_create(args.edge_domain_socket,
                                 &pt_cbs);

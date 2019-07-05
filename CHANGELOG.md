@@ -1,5 +1,17 @@
 # Changelog for Edge examples
 
+## Release 0.10.0 (2019-07-05)
+ * Added fetch for certificate and public key to the mqtt-example.
+ * Added device certificate renewal support in mqtt-example.
+ * Added option to create a generic object to the mqtt-example.
+ * Split the `simple-pt-example.js` Javascript example to 2 examples:
+   * `simple-pt-example.js` demonstrating PT and Device management.
+   * `pt-crypto-api-example.js` demonstrating the crypto operations.
+ * Added new crypto operations to `pt-crypto-api-example.js`.
+ * Replace MQTT example `renew-certificates` API with 2 separate methods:
+   * `renew-certificate` API which renews a single certificate.
+   * `set-certificates-list` API which subscribes to receive notifications for given list of certificates.
+
 ## Release 0.9.0 (2019-04-19)
 
 Added certificate renewal for the examples.

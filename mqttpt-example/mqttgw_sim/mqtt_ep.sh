@@ -22,10 +22,11 @@ devicename="DEVNAME"
 gweui="GWEUI"
 temperature="23.4"
 humidity="46.1"
+set_point="22.5"
 
 usage()
 {
-    echo "usage: mqtt_ep.sh [-d device-name] [-t temperature-value] [-h humidity-value]"
+    echo "usage: mqtt_ep.sh [-d device-name] [-t temperature-value] [-h humidity-value] [-s set_point-value]"
 }
 
 ep_value_data()
@@ -34,6 +35,7 @@ ep_value_data()
 {
     "appeui": "00000000000000AB",
     "deveui": "$devicename",
+    "cert_renewal": true,
     "metadata": {
         "code_rate": "4/5",
         "data_rate": "SF8BW500",
@@ -53,24 +55,55 @@ ep_value_data()
         "seqno": 193
     },
     "payload_field": [
-        [
-            "VALUE",
-            "Temperature",
-            "$temperature",
-            "\u2103",
-            "-50",
-            "50",
-            "1"
-        ],
-        [
-            "VALUE",
-            "Humidity",
-            "$humidity",
-            "%",
-            "0",
-            "100",
-            "2"
-        ]
+        {
+            "payload_type": "VALUE",
+            "objectid": "3303",
+            "objectinstances": [{
+                "objectinstance": "0",
+                "resources": [{
+                    "resourceid": "5700",
+                    "resourcename": "Temperature",
+                    "value": "$temperature",
+                    "unit": "\u2103",
+                    "minvalue": "-50",
+                    "maxvalue": "50",
+                    "operations": "5"
+                }]
+            }]
+        },
+        {
+            "payload_type": "VALUE",
+            "objectid":"3304",
+            "objectinstances": [{
+                "objectinstance": "0",
+                "resources": [{
+                    "resourceid": "5700",
+                    "type": "Humidity",
+                    "value": "$humidity",
+                    "unit": "%",
+                    "minvalue": "0",
+                    "maxvalue": "100",
+                    "operations": "5"
+                }]
+            }]
+
+        },
+        {
+            "payload_type": "VALUE",
+            "objectid": "3308",
+            "objectinstances": [{
+                "objectinstance": "0",
+                "resources": [{
+                    "resourceid": "5900",
+                    "resoucename": "Set point",
+                    "value": "$set_point",
+                    "unit": "\u2103",
+                    "minvalue": "-50",
+                    "maxvalue": "50",
+                    "operations": "3"
+                }]
+            }]
+        }
     ],
     "payload_raw": "",
     "remark": "mqtt_test"
@@ -89,6 +122,9 @@ while [ "$1" != "" ]; do
         -h | --humidity )       shift
                                 humidity=$1
                                 ;;
+        -s | --set-point )      shift
+                                set_point=$1
+                                ;;
         * )                     usage
                                 exit 1
     esac
@@ -97,4 +133,4 @@ done
 
 
 echo "$(ep_value_data)"
-mosquitto_pub -t MQTTGw/$gweui/Node/$devicename/Val -m "$(ep_value_data)"
+mosquitto_pub -t MQTTGw/$gweui/Node/$devicename/EdgeVal -m "$(ep_value_data)"
