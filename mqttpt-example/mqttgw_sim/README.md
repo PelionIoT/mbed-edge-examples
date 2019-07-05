@@ -16,12 +16,28 @@ Requires `mosquitto_pub` client for publishing the MQTT messages to MQTT broker.
 
 `$ ./mqtt_ep.sh`
 
-4. Update certificates on the gateway
+4. Update certificates `cert_id_1` and `cert_id_2` on the gateway
 
-`$ ./mqtt_gw_certificates_renew.sh cert_id_1 cert_id_2`
+`$ ./mqtt_gw_crypto_api.sh --renew-certificates cert_id_1 cert_id_2`
 
-Above updates certificates with names `cert_id_1` and `cert_id_2`.
+5. Get certificate `cert_id_1`
+
+`$ ./mqtt_gw_crypto_api.sh --get-certificate cert_id_1`
+
+6. Get public key for `cert_id_1`
+
+`$ ./mqtt_gw_crypto_api.sh --get-public-key cert_id_1`
 
 Notice that the device script accepts parameters for device name, temperature and humidity. For example to register device `MY_DEVICE` and set temperature value to 20.1C and humidity value to 67.5%:
 
 `$ ./mqtt_ep.sh -d MY_DEVICE -t 20.1 -h 67.5`
+
+`mqtt_gw_crypto_api.sh` script can also be used to test rest of the crypto-features. Full list of the supported operations is
+
+ * renewing certificates
+ * getting certificate
+ * getting public key
+ * generating random bytearrays
+ * performing asymmetric signing
+ * verifying asymmetric signatures
+ * performing ecdh key agremeent

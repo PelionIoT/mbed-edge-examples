@@ -1,11 +1,15 @@
 # Simple Javascript protocol translator and management example
 
-## simple-pt-example.js
+## simple-pt-example.js and pt-crypto-api-example.js
 
-This example protocol translator shows the calls and parameters to pass to
-Edge Core protocol translator API. The websocket connection and
+These example protocol translators show the calls and parameters to pass to
+Edge Core protocol translator API. The `simple-pt-example.js` demonstrates the
+basic protocol translator functionality, ie. registering, unregistering and 
+device operations. The `pt-crypto-api-example.js` demonstrates specifically 
+the usage of the crypto API's, ie. certificate and public key usage, certificate renewal, asymmetric
+operations and ECDH key agreement operation. The websocket connection and
 JSONRPC 2.0 specification and communication is left out of the scope to
-keep the example simple.
+keep the examples simple.
 
 Libraries are used to handle the websocket and JSONRPC 2.0 communication.
 

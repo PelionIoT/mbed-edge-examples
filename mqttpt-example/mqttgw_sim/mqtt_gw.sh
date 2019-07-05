@@ -18,4 +18,4 @@
 # limitations under the License.
 # ----------------------------------------------------------------------------
 
-mosquitto_pub -t MQTT -m "{}"
+mosquitto_pub -t MQTT -m "{\"request_id\":\"1\",\"method\":\"start_pt\"}"
