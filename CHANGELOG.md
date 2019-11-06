@@ -1,5 +1,8 @@
 # Changelog for Edge examples
 
+## Release 0.11.0 (2019-10-03)
+ * Updated git submodule mbed-edge to 0.11.0
+
 ## Release 0.10.0 (2019-07-05)
  * Added fetch for certificate and public key to the mqtt-example.
  * Added device certificate renewal support in mqtt-example.
