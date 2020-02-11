@@ -1,5 +1,8 @@
 # Changelog for Edge examples
 
+## Release 0.12.0 (2020-01-08)
+ * Updated git submodule mbed-edge to 0.12.0
+
 ## Release 0.11.0 (2019-10-03)
  * Updated git submodule mbed-edge to 0.11.0
 
