@@ -34,6 +34,20 @@ Please study the example code to see how to use the management JSONRPC 2.0
 API and read the relevant documentation for Edge APIs from
 [Device Management Docs](https://cloud.mbed.com/docs/current).
 
+## simple-grm-example.js
+
+These example gateway resource managers demonstrate the calls and parameters to pass to
+Edge Core gateway resource management API. The `simple-grm-example.js` demonstrates the
+basic resource manager functionality, ie. registering, adding resources and
+updation. The websocket connection and JSONRPC 2.0 specification and communication
+is left out of the scope to keep the example simple.
+
+Libraries are used to handle the websocket and JSONRPC 2.0 communication.
+
+Please study the example code to see how to use the gateway resource manager
+JSONRPC 2.0 API and read the relevant documentation for Edge APIs from
+[Device Management Docs](https://cloud.mbed.com/docs/current).
+
 ## Dependencies
 
 This example uses `node.js v8` or higher.
@@ -100,3 +114,24 @@ Fixed values for the example:
    to the Edge Core.
 1. After successful connection you can query devices from Edge Core with `devices()` function.
 1. See the example application help for other functions.
+
+## Running the gateway resource manager example
+
+Fixed values for the example:
+ * Resource Manager name is `simple-grm-example`
+ * The example LwM2M object `33001`has one instance with id `0`.
+ * The object instance has two resources:
+   * `33001/0/0` which is a readable resource of type `string`
+   * `33001/0/1` which is a readable and writable resource of type `float`
+
+1. Run the Edge Core
+   See the pre-requisites to build and run from the root [README.md](./README.md)
+1. Verify that Edge device is connected to Device Management and visible
+   from [Device Management Portal](https://portal.mbedcloud.com)
+1. Run this example and connect to Edge.
+   ```bash
+   $ nodejs simple-grm-example.js
+   ```
+1. Follow the command prompt to register resource manager, add gateway resources and update them.
+1. Monitor the registered Edge and gateway resources from Device Management Portal.
+1. Try writing a new float value to the resource `/33001/0/1`. A JSONRPC 2.0 packet will be received by the example.

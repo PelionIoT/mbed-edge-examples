@@ -1,13 +1,15 @@
 # Changelog for Edge examples
 
-## Release 0.13.0 (2020-04-29)
- * Update git submodule mbed-edge to 0.13.0
+## Release 0.14.0 (2020-12-07)
+ * Updated git submodule mbed-edge to 0.14.0
+ * Added `simple-grm-example.js` to demonstrate gateway resource management. It helps understand the basic resource manager functionality, such as registering service, adding and updating LwM2M objects.
+ * Updated the C example `pt-example` to demonstrate the flow of firmware update process for devices behind the gateway.
 
 ## Release 0.12.0 (2020-01-08)
- * Updated git submodule mbed-edge to 0.12.0
+ * Updated git submodule mbed-edge-internal to 0.12.0
 
 ## Release 0.11.0 (2019-10-03)
- * Updated git submodule mbed-edge to 0.11.0
+ * Updated git submodule mbed-edge-internal to 0.11.0
 
 ## Release 0.10.0 (2019-07-05)
  * Added fetch for certificate and public key to the mqtt-example.

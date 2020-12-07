@@ -37,6 +37,7 @@
 #define TRACE_GROUP "clnt-example"
 #include "mbed-trace/mbed_trace.h"
 #include "common/edge_trace.h"
+#include "arm_uc_public.h"
 
 /* The protocol translator API include */
 #include "pt-client-2/pt_api.h"
@@ -635,6 +636,139 @@ void device_register_failure_handler(connection_id_t connection_id, const char *
     tr_info("Device \"%s\" registration failed.", device_id);
 }
 
+void unregister_success_handler(connection_id_t connection_id, const char *device_id, void *userdata)
+{
+    (void) connection_id;
+
+    pt_manifest_context_t *asset = (pt_manifest_context_t*) userdata;
+
+    // Mimicks a physical device reboot
+    tr_cmdline("Re-booting device! Waiting 5 seconds...\n");
+    sleep(5);
+
+    // Formulate new device struct because unregister nuked previous device struct
+    client_config_create_device_with_parameters(connection_id,
+                                                device_id,
+                                                NULL,      // userdata
+                                                "ARM",     // manufacturer
+                                                "example", // model_number
+                                                "001",     // serial_number
+                                                "example"  // device_type
+    );
+    // Re-register
+       ipso_create_sensor_object(connection_id,device_id, TEMPERATURE_SENSOR,0, "CEL", NULL);
+     ipso_add_min_max_fields(connection_id,
+                                device_id,
+                                TEMPERATURE_SENSOR,
+                                0,
+                                ipso_reset_min_max_object);
+    pt_device_update_firmware_update_resources(connection_id, device_id, asset->hash, asset->version);
+    pt_manifest_context_free(asset);
+    pt_device_register(connection_id, device_id, device_register_success_handler, device_register_failure_handler, NULL);
+}
+
+void unregister_failure_handler(connection_id_t connection_id, const char *device_id, void *userdata)
+{
+    (void) connection_id;
+    (void) userdata;
+    tr_error("Un-register failure for device %s", device_id);
+    pt_manifest_context_t *asset = (pt_manifest_context_t*) userdata;
+    pt_manifest_context_free(asset);
+}
+
+void asset_manifest_success_handler(connection_id_t connection_id, const char *filename, int error_code, void *ctx)
+{
+    tr_info("Manifest Failure Reported to Edge-Core");
+}
+void asset_manifest_failure_handler(connection_id_t connection_id, const char *filename, int error_code, void *ctx)
+{
+    tr_info("Manifest Failure Not Reported to Edge-Core");
+}
+void asset_download_success_handler(connection_id_t connection_id, const char *filename, int error_code, void *ctx)
+{
+    pt_manifest_context_t *asset = (pt_manifest_context_t*) ctx;
+
+    tr_info("Download request complete! Awaiting for async response to come back");
+    tr_cmdline("Download complete! File location for %s:\r\n", filename);
+    int c,count=0;
+    FILE *file;
+    file = fopen(filename, "r");
+    if (file) {
+        while ((c = getc(file)) != EOF)
+            count++;
+        fclose(file);
+    }
+    tr_info("count=%d\n",count);
+
+    // Unregister device so we can re-register with new asset hash and version
+    // Download campaign will complete after a re-register
+    pt_device_unregister(connection_id, asset->device_id, unregister_success_handler, unregister_failure_handler, ctx);
+}
+
+void asset_download_failure_handler(connection_id_t connection_id, const char *filename, int error_code, void *ctx)
+{
+    tr_error("Download request error!!!");
+    pt_manifest_context_t *asset = (pt_manifest_context_t*) ctx;
+    pt_manifest_context_free(asset);
+}
+
+pt_status_t manifest_handler(const connection_id_t connection_id,
+                             const char *device_id,
+                             const uint16_t object_id,
+                             const uint16_t instance_id,
+                             const uint16_t resource_id,
+                             const uint8_t operation,
+                             const uint8_t *value,
+                             const uint32_t value_size,
+                             void *userdata)
+{
+    (void) operation;
+    (void) userdata;
+
+    tr_info("Manifest sent down to the device. Executing callback");
+
+    // Initialize the download asset context
+    pt_manifest_context_t *ctx = (pt_manifest_context_t *) calloc(1, sizeof(pt_manifest_context_t));
+    // Fill out the device ID in the context
+    memcpy(ctx->device_id, device_id, strlen(device_id));
+    ctx->device_id[strlen(device_id)] = 0;
+    // Fill the remaining fields of the context
+    arm_uc_update_result_t *error_manifest = (arm_uc_update_result_t *)malloc(sizeof(arm_uc_update_result_t));
+    if(error_manifest==NULL)
+    {
+        tr_err("Memory Allocation Error %s %d",__FUNCTION__,__LINE__);
+        free(ctx);
+        return PT_STATUS_ALLOCATION_FAIL;
+    }
+    memset(error_manifest,0,sizeof(arm_uc_update_result_t));
+    *error_manifest = ARM_UC_UPDATE_STATE_PROCESSING_MANIFEST;
+    pt_status_t status = pt_parse_manifest(value, value_size, ctx,error_manifest);
+    if (status != PT_STATUS_SUCCESS) {
+        tr_err("Error parsing manifest");
+        pt_subdevice_manifest_status(connection_id,
+                             device_id,
+                             error_manifest,
+                             asset_manifest_success_handler,
+                             asset_manifest_failure_handler,
+                             ctx);
+        free(error_manifest);
+        return PT_STATUS_SUCCESS;
+    }
+    free(error_manifest);
+
+    //call download firmware routine
+    return pt_download_asset(connection_id,
+                             device_id,
+                             ctx->url,
+                             ctx->hash,
+                             ctx->size,
+                             asset_download_success_handler,
+                             asset_download_failure_handler,
+                             ctx);
+}
+
+
+
 void main_loop(DocoptArgs *args)
 {
     wait_until_connected();
@@ -642,6 +776,7 @@ void main_loop(DocoptArgs *args)
     char *cpu_temperature_device_id = malloc(strlen(CPU_TEMPERATURE_DEVICE) + strlen(args->endpoint_postfix) + 1);
     if (cpu_temperature_device_id) {
         sprintf(cpu_temperature_device_id, "%s%s", CPU_TEMPERATURE_DEVICE, args->endpoint_postfix);
+        pt_device_add_manifest_callback(g_connection_id, manifest_handler);
         client_config_create_cpu_temperature_device(g_connection_id, cpu_temperature_device_id);
         pt_device_register(g_connection_id,
                            cpu_temperature_device_id,
