@@ -33,6 +33,10 @@ add_subdirectory (lib/${EDGE_SOURCES_DIR_NAME}/lib/jansson)
 add_library (jsonrpc STATIC lib/${EDGE_SOURCES_DIR_NAME}/lib/jsonrpc/jsonrpc.c)
 target_link_libraries(jsonrpc jansson)
 
+MESSAGE ("To compile pt-example, pt-client-2 should be compiled with subdevice fota feature.")
+set(ENABLE_SUBDEVICE_FOTA ON)
+add_definitions(-DMBED_EDGE_SUBDEVICE_FOTA)
+
 add_subdirectory (lib/${EDGE_SOURCES_DIR_NAME}/common)
 add_subdirectory (lib/${EDGE_SOURCES_DIR_NAME}/edge-rpc)
 add_subdirectory (lib/${EDGE_SOURCES_DIR_NAME}/pt-client)
