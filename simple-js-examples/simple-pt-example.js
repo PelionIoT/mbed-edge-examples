@@ -102,10 +102,10 @@ EdgePTExample.prototype.registerProtocolTranslator = async function() {
 EdgePTExample.prototype._createDeviceParams = function(deviceId, temperatureValue, setPointValue) {
     // Values are always Base64 encoded strings.
     let temperature = Buffer.allocUnsafe(4);
-    temperature.writeFloatBE(temperatureValue)
+    temperature.writeFloatLE(temperatureValue)
     temperature = temperature.toString('base64');
     let setPoint = Buffer.allocUnsafe(4);
-    setPoint.writeFloatBE(setPointValue);
+    setPoint.writeFloatLE(setPointValue);
     setPoint = setPoint.toString('base64');
 
     // An IPSO/LwM2M temperature sensor and set point sensor (thermostat)
