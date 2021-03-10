@@ -250,7 +250,7 @@ void device_write_values_to_pt(struct ble_device *ble);
 void device_register_device(struct ble_device *dev);
 
 /* return a malloc-ed string containing the json representation of a device's services and characteristics
- * according to the documentation in https://github.com/ARMmbed/ble-lwm2m-translation/blob/master/README.md
+ * according to the documentation in https://github.com/PelionIoT/ble-lwm2m-translation/blob/master/README.md
  * It is up to the caller to free() the string when no longer needed.
  */
 char *json_list_device_services(struct ble_device *ble);

@@ -117,6 +117,7 @@ EdgePTExample.prototype._createDeviceParams = function(deviceId, temperatureValu
                 objectInstanceId: 0,
                 resources: [{
                     resourceId: 5700,
+                    // resourceName: "Resource Name", /* This is an optional field */
                     operations: OPERATIONS.READ,
                     type: 'float',
                     value: temperature

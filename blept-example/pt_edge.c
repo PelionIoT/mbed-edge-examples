@@ -67,6 +67,7 @@ edge_add_resource(const char *device_id,
                   const uint16_t object_id,
                   const uint16_t instance_id,
                   const uint16_t resource_id,
+                  const char *resource_name,
                   const Lwm2mResourceType type,
                   const uint8_t operations,
                   const uint8_t *value,
@@ -74,7 +75,7 @@ edge_add_resource(const char *device_id,
 {
     pt_status_t status = PT_STATUS_SUCCESS;
 
-    // Since value buffer ownership is transferred to the pt, let's copy it here
+    // Since value buffer ownership is transferred to the pt, copy it here.
     uint8_t *buf = malloc(value_size);
     if (buf == NULL) {
         goto err;
@@ -86,6 +87,7 @@ edge_add_resource(const char *device_id,
                                          object_id,
                                          instance_id,
                                          resource_id,
+                                         resource_name,
                                          type,
                                          operations,
                                          buf,
@@ -113,7 +115,7 @@ edge_set_resource_value(const char *device_id,
                         const uint8_t *value,
                         const uint32_t value_size)
 {
-    // pt_resource_set_value free's the value buffer, so copy the value to new buffer
+    // pt_resource_set_value frees the value buffer, so copy the value to new buffer.
     uint8_t *buf = malloc(value_size);
     if (buf) {
         memcpy(buf, value, value_size);
@@ -190,8 +192,8 @@ void pt_edge_del_device(struct ble_device *ble)
     assert(NULL != ble);
     devices_del_device(ble);
     if (unregistering_devices) {
-        // If unregistering all devices, check if this was last one and inform ble eventloop
-        // handler if every device has been unregistered
+        // If unregistering all devices, check if this is the last one and inform the BLE eventloop
+        // handler if every device has been unregistered.
         if (ns_list_count(devices_get_list()) == 0) {
             g_idle_add(pt_ble_g_main_quit_loop, NULL);
         }
@@ -207,7 +209,7 @@ static gboolean device_unregistered(gpointer unregistered_message_p)
 
     devices_mutex_lock();
 
-    // Remove the device and clean up any allocated data
+    // Remove the device and clean up any allocated data.
     struct ble_device *ble = devices_find_device_by_device_id((char *) device_id);
     free(device_id);
     free(unregistered_message);
@@ -226,15 +228,15 @@ static gboolean device_unregistered(gpointer unregistered_message_p)
 
 /**
  * \brief Device unregistration success callback handler.
- * In this callback you can react to successful endpoint device unregistration.
+ * In this callback you can react to a successful endpoint device unregistration.
  *
  * The callback runs on the same thread as the event loop of the protocol translator client.
- * If the related functionality of the callback runs a long process, you need to move it
+ * If the related functionality of the callback runs a long process, move it to
  * a worker thread. If the process runs directly in the callback, it
- * blocks the event loop and thus, blocks the protocol translator.
+ * blocks the event loop, and in turn, the protocol translator.
  *
  * \param connection_id The ID of the connection to Edge.
- * \param device_id The device ID from context from the `pt_unregister_device()` call.
+ * \param device_id The ID of the device that has unregistered.
  * \param userdata Pointer to `unregistered_message_t` structure.
  */
 static void device_unregistration_success(const connection_id_t connection_id, const char* device_id, void *userdata)
@@ -245,15 +247,15 @@ static void device_unregistration_success(const connection_id_t connection_id, c
 
 /**
  * \brief Device unregistration failure callback handler.
- * In this callback you can react to failed endpoint device unregistration.
+ * In this callback, you can react to a failed endpoint device unregistration.
  *
  * The callback runs on the same thread as the event loop of the protocol translator client.
- * If the related functionality of the callback runs a long process, you need to move it
+ * If the related functionality of the callback runs a long process, move it to
  * a worker thread. If the process runs directly in the callback, it
- * blocks the event loop and thus, blocks the protocol translator.
+ * blocks the event loop, and in turn, the protocol translator.
  *
  * \param connection_id The ID of the connection to Edge.
- * \param device_id The device ID from context from the `pt_unregister_device()` call.
+ * \param device_id The ID of the device that has unregistered.
  * \param userdata Pointer to `unregistered_message_t` structure.
  */
 static void device_unregistration_failure(const connection_id_t connection_id, const char* device_id, void *userdata)
@@ -263,7 +265,7 @@ static void device_unregistration_failure(const connection_id_t connection_id, c
 }
 
 /**
- * \brief Unregisters the test device
+ * \brief Unregisters the test device.
  */
 void unregister_devices()
 {
@@ -273,19 +275,19 @@ void unregister_devices()
         ble_device_list_t *list;
         list = devices_get_list();
         if (ns_list_count(list) == 0) {
-            // No devices to unregister, so we can close immediately
+            // No devices to unregister, so you can exit the program.
             g_idle_add(pt_ble_g_main_quit_loop, NULL);
         }
         else {
-            // Unregister each device, after the last device unregistration has finished
-            // we can close
+            // Unregister each device. After the last device unregistration has finished,
+            // you can exit the program.
             ns_list_foreach_safe(struct ble_device, dev, list) {
                 ble_remove_device(dev);
             }
 
-            // All non-registered devices will be removed by edge_unregister_device, so
-            // check if the list is already empty at this point, in which case we can
-            // initiate the glib event loop shutdown
+            // `edge_unregister_device` removes all non-registered devices, so
+            // check if the list is already empty at this point. In this case, you can
+            // initiate the glib event loop shutdown.
             if (ns_list_count(list) == 0) {
                 g_idle_add(pt_ble_g_main_quit_loop, NULL);
             }
@@ -294,13 +296,13 @@ void unregister_devices()
 }
 
 /**
- * \brief Success callback for device write values operation in Pelion Edge.
- * With this callback, you can react to a successful write of device values to Pelion Edge.
+ * \brief Success callback for device write values operation in Edge
+ * With this callback, you can react to a successful write of device values to Edge.
  *
  * The callback runs on the same thread as the event loop of the protocol translator client.
- * If the related functionality of the callback runs a long process, you need to move it
+ * If the related functionality of the callback runs a long process, move it
  * to a worker thread. If the process runs directly in the callback, it
- * blocks the event loop and thus, blocks the protocol translator.
+ * blocks the event loop, and in turn, the protocol translator.
  *
  * \param connection_id The connection ID from context from the `pt_devices_update()` call.
  * \param userdata The user-supplied context from the `pt_devices_update()` call.
@@ -313,13 +315,13 @@ static void device_write_values_success_handler(connection_id_t connection_id, c
 }
 
 /**
- * \brief Failure callback for device write values operation in Pelion Edge.
- * With this callback, you can react to a failed write of device values to Pelion Edge.
+ * \brief Failure callback for device write values operation in Edge
+ * With this callback, you can react to a failed write of device values to Edge.
  *
  * The callback runs on the same thread as the event loop of the protocol translator client.
- * If the related functionality of the callback runs a long process, you need to move it
+ * If the related functionality of the callback runs a long process, move it
  * to a worker thread. If the process runs directly in the callback, it
- * blocks the event loop and thus, blocks the protocol translator.
+ * blocks the event loop, and in turn, the protocol translator.
  *
  * \param connection_id The connection ID from context from the `pt_devices_update()` call.
  * \param userdata The user-supplied context from the `pt_devices_update()` call.
@@ -350,19 +352,19 @@ static gboolean device_registered(gpointer device_id)
 }
 
 /**
- * \brief Device registration success callback handler.
+ * \brief Device registration success callback handler
  * With this callback, you can react to a successful endpoint device
  * registration.
  *
  * The callback runs on the same thread as the event loop of the protocol
  * translator client.
- * If the related functionality of the callback runs a long process, you need
- * to move it a worker thread. If the process runs directly in the callback, it
- * blocks the event loop and thus, blocks the protocol translator.
+ * If the related functionality of the callback runs a long process, move it to
+ * a worker thread. If the process runs directly in the callback, it
+ * blocks the event loop, and in turn, the protocol translator.
  *
  * \param connection_id The ID of the connection to Edge.
- * \param device_id The device ID from context from pt_register_device()
- * \param userdata The user-supplied context from pt_register_device()
+ * \param device_id The device ID from context from pt_register_device().
+ * \param userdata The user-supplied context from pt_register_device().
  */
 static void device_registration_success(const connection_id_t connection_id, const char* device_id, void *userdata)
 {
@@ -375,14 +377,14 @@ static void device_registration_success(const connection_id_t connection_id, con
 }
 
 /**
- * \brief Device registration failure callback handler.
+ * \brief Device registration failure callback handler
  * With this callback, you can react to a failed endpoint device registration.
  *
  * The callback runs on the same thread as the event loop of the protocol
  * translator client.
- * If the related functionality of the callback runs a long process, you must
+ * If the related functionality of the callback runs a long process,
  * move it to a worker thread. If the process runs directly in the callback, it
- * blocks the event loop and thus, blocks the protocol translator.
+ * blocks the event loop, and in turn, the protocol translator.
  *
  * \param connection_id The ID of the connection to Edge.
  * \param device_id The device ID provided to pt_register_device().
@@ -398,19 +400,19 @@ static void device_registration_failure(const connection_id_t connection_id, con
 }
 
 /**
- * \brief Protocol translator registration success callback handler.
- * With this callback, you can react to a successful protocol translator registration to Mbed Edge.
+ * \brief Protocol translator registration success callback handler
+ * With this callback, you can react to a successful protocol translator registration to Edge.
  *
  * The callback runs on the same thread as the event loop of the protocol translator client.
- * If the related functionality of the callback runs a long process, you need to move it
+ * If the related functionality of the callback runs a long process, move it
  * to a worker thread. If the process runs directly in the callback, it
- * blocks the event loop and thus, blocks the protocol translator.
+ * blocks the event loop, and in turn, the protocol translator.
  *
  * \param userdata The user-supplied context from the `pt_register_protocol_translator()` call.
  */
 static void protocol_translator_registration_success(void *userdata)
 {
-    // Note: PT API mutex (devices_get_mutex()) is locked by the caller
+    // Note: PT API mutex (devices_get_mutex()) is locked by the caller.
     (void)userdata;
 
     tr_info("PT registration successful");
@@ -425,13 +427,13 @@ static void protocol_translator_registration_success(void *userdata)
 }
 
 /**
- * \brief Protocol translator registration failure callback handler.
- * With this callback, you can react to a failed protocol translator registration to Mbed Edge.
+ * \brief Protocol translator registration failure callback handler
+ * With this callback, you can react to a failed protocol translator registration to Edge.
  *
  * The callback runs on the same thread as the event loop of the protocol translator client.
- * If the related functionality of the callback runs a long process, you need to move it to
+ * If the related functionality of the callback runs a long process, move it to
  * a worker thread. If the process runs directly in the callback, it
- * blocks the event loop and thus, blocks the protocol translator.
+ * blocks the event loop, and in turn, the protocol translator.
  *
  * \param userdata The user-supplied context from the `pt_register_protocol_translator()` call.
  */
@@ -445,18 +447,18 @@ static void protocol_translator_registration_failure(void *userdata)
 }
 
 /**
- * \brief The implementation of the `pt_connection_ready_cb` function prototype from `pt-client-2/pt_client_api.h`.
+ * \brief The implementation of the `pt_connection_ready_cb` function prototype from `pt-client-2/pt_client_api.h`
  *
  * With this callback, you can react to the protocol translator being ready for passing a
- * message with the Mbed Edge Core.
+ * message with Edge Core.
  * The callback runs on the same thread as the event loop of the protocol translator client.
- * If the related functionality of the callback runs a long process, you need to move it to
+ * If the related functionality of the callback runs a long process, move it to
  * a worker thread. If the process runs directly in the callback, it
- * blocks the event loop and thus, blocks the protocol translator.
+ * blocks the event loop, and in turn, the protocol translator.
  *
- * \param connection_id The ID of the connection which is ready.
+ * \param connection_id The ID of the connection.
  * \param name The name of the protocol translator.
- * \param userdata The user supplied context from the `pt_register_protocol_translator()` call.
+ * \param userdata The user-supplied context from the `pt_register_protocol_translator()` call.
  */
 static void connection_ready_handler(connection_id_t connection_id, const char *name, void *userdata)
 {
@@ -468,17 +470,17 @@ static void connection_ready_handler(connection_id_t connection_id, const char *
 }
 
 /**
- * \brief The implementation of the `pt_disconnected_cb` function prototype from `pt-client/pt_api.h`.
+ * \brief The implementation of the `pt_disconnected_cb` function prototype from `pt-client/pt_api.h`
  *
- * With this callback, you can react to the protocol translator being disconnected from
- * the Mbed Edge Core.
+ * With this callback, you can react to the protocol translator disconnecting from
+ * Edge Core.
  * The callback runs on the same thread as the event loop of the protocol translator client.
- * If the related functionality of the callback runs a long process, you need to move it to
+ * If the related functionality of the callback runs a long process, move it to
  * a worker thread. If the process runs directly in the callback, it
- * blocks the event loop and thus, blocks the protocol translator.
+ * blocks the event loop, and in turn, the protocol translator.
  *
- * \param connection_id The ID of the connection which is ready.
- * \param userdata The user supplied context from the `pt_register_protocol_translator()` call.
+ * \param connection_id The ID of the connection.
+ * \param userdata The user-supplied context from the `pt_register_protocol_translator()` call.
  */
 static void disconnected_handler(connection_id_t connection_id, void *userdata)
 {
@@ -490,15 +492,15 @@ static void disconnected_handler(connection_id_t connection_id, void *userdata)
 
 /**
  * \brief Implementation of the `pt_connection_shutdown_cb` function prototype
- * for shutting down the client application.
+ * for shutting down the client application
  *
  * The callback to be called when the protocol translator client is shutting down. This
- * lets the client application know when the pt-client is shutting down
+ * lets the client application know when the PT client is shutting down
  * \param connection The connection of the using application.
  * \param userdata The original userdata from the application.
  *
- * \param connection_id The ID of the connection which is closing down.
- * \param userdata The user supplied context from the `pt_register_protocol_translator()` call.
+ * \param connection_id The ID of the connection.
+ * \param userdata The user-supplied context from the `pt_register_protocol_translator()` call.
  */
 static void shutdown_cb_handler(connection_id_t connection_id, void *userdata)
 {
@@ -516,13 +518,13 @@ static void shutdown_cb_handler(connection_id_t connection_id, void *userdata)
 }
 
 /**
- * \brief Handles certificate renewal notification.
- *        This callback will be called to notify the status when a certificate renewal completes.
+ * \brief Handles certificate renewal notification
+ *        This callback is called to notify the status when a certificate renewal completes.
  * \param name The name of the certificate.
- * \param initiator 0 - device initiated the renewal \n
- *                  1 - cloud initiated the renewal
+ * \param initiator 0 - Device initiated renewal. \n
+ *                  1 - Cloud initiated renewal.
  * \param status Status of the certificate renewal.
- *               0 - for success. \n
+ *               0 - Success. \n
  *               Non-zero if error happened. See error codes in `ce_status_e` in
  *                   `certificate-enrollment-client/ce_defs.h`.
  * \param description Description of the status in string form for human readability.
@@ -564,12 +566,12 @@ pt_status_t device_certificate_renew_request_handler(const connection_id_t conne
 }
 
 /**
- * \brief A function to start the protocol translator API.
+ * \brief A function to start the protocol translator API
  *
  * This function is the protocol translator threads main entry point.
  *
- * \param ctx The context object must containt `protocol_translator_api_start_ctx_t` structure
- * to pass the initialization data to protocol translator start function.
+ * \param ctx The context object must contain `protocol_translator_api_start_ctx_t` structure
+ * to pass the initialization data to the protocol translator start function.
  */
 static void *protocol_translator_api_start_func(void *ctx)
 {
@@ -609,9 +611,9 @@ static void *protocol_translator_api_start_func(void *ctx)
 }
 
 /**
- * \brief Function to create the protocol translator thread.
+ * \brief Function to create the protocol translator thread
  *
- * \param ctx The context to pass initialization data to protocol
+ * \param ctx The context to pass initialization data to the protocol
  *            translator API.
  */
 void

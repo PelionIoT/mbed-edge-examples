@@ -1,6 +1,6 @@
 ## MQTT gateway simulator
 
-A simple MQTT gateway simulator that can be used to test mqttpt-example protocol translator (without real MQTT hardware). Publishes gateway status messages (`mqtt_gw.sh`) and device value messages (`mqtt_ep.sh`). The device script `mqtt_ep.sh` accepts parameters to register multiple devices or update temperature and/or humidity sensor values.
+This is an MQTT gateway simulator to test the `mqttpt-example` protocol translator without MQTT hardware. Publishes gateway status messages (`mqtt_gw.sh`) and device value messages (`mqtt_ep.sh`). The device script `mqtt_ep.sh` accepts parameters to register multiple devices or update sensor values, including temperature and humidity.
 
 ### Requirements
 Requires `mosquitto_pub` client for publishing the MQTT messages to MQTT broker.

@@ -1,5 +1,11 @@
 # Changelog for Edge examples
 
+## Release 0.16.0 (2021-03-15)
+ * Updated git submodule mbed-edge to 0.16.0
+ * PT and Gateway Resource Management (GRM) examples can now update LwM2M resource name while registering gateway or device resources.
+ * Added JS example `simple-fota-example.js` to demonstrate the API use of subdevice FOTA feature.
+ * Updated the C example `pt-example` to use new `manifest_vendor_and_class` API call to receive vendorID and classID of the parsed/validated update manifest.
+
 ## Release 0.15.0 (2021-01-12)
  * Updated git submodule mbed-edge to 0.15.0
 

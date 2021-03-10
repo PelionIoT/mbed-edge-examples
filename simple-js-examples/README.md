@@ -105,7 +105,7 @@ Fixed values for the example:
    from [Device Management Portal](https://portal.mbedcloud.com)
 1. Connect a protocol translator and some devices to Edge.
    For example one of the protocol translator examples provided from
-   [Edge examples](https://github.com/ARMmbed/mbed-edge-examples).
+   [Edge examples](https://github.com/PelionIoT/mbed-edge-examples).
 1. Run this example and connect to Edge.
    ```bash
    $ nodejs simple-mgmt-example.js

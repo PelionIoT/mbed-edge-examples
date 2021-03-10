@@ -114,7 +114,7 @@ EdgeGRMExample.prototype._createResourceParams = function(value1, value2) {
        - type of value it holds, and 
        - the value to be set
 
-     * Note: Object 1, 3, 10252, 10255, 26241 and 35011 are reserved in edge-core.
+     * Note: Object 1, 3, 14, 10252, 10255, 26241 and 35011 are reserved in edge-core.
     */
     params = {
         objects: [{
@@ -123,11 +123,13 @@ EdgeGRMExample.prototype._createResourceParams = function(value1, value2) {
                 objectInstanceId: 0,
                 resources: [{
                     resourceId: 0,
+                    resourceName: "Name",
                     operations: OPERATIONS.READ,
                     type: 'string',
                     value: resource1
                 },{
                     resourceId: 1,
+                    resourceName: "Example Value",
                     operations: OPERATIONS.READ | OPERATIONS.WRITE,
                     type: 'float',
                     value: resource2

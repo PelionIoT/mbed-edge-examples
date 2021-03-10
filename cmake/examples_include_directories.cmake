@@ -17,6 +17,7 @@ include_directories (lib/${EDGE_SOURCES_DIR_NAME}/lib/libevent/libevent/include)
 include_directories (${CMAKE_CURRENT_BINARY_DIR}/lib/${EDGE_SOURCES_DIR_NAME}/lib/libevent/libevent/include)
 
 include_directories (${MBED_EDGE_DEPENDENCY_SOURCES}/libwebsockets/libwebsockets/lib)
+include_directories (${MBED_EDGE_DEPENDENCY_SOURCES}/libwebsockets/libwebsockets/include)
+include_directories (${MBED_EDGE_DEPENDENCY_SOURCES}/libwebsockets/libwebsockets/include/libwebsockets)
 include_directories (${CMAKE_BINARY_DIR}/lib/${EDGE_SOURCES_DIR_NAME}/lib/libwebsockets/libwebsockets)
 include_directories (${CMAKE_BINARY_DIR}/lib/${EDGE_SOURCES_DIR_NAME}/lib/libwebsockets/libwebsockets/include)
-

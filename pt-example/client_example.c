@@ -34,14 +34,13 @@
 #include "examples-common-2/ipso_objects.h"
 #include "pt-example/client_example.h"
 
-#define TRACE_GROUP "clnt-example"
 #include "mbed-trace/mbed_trace.h"
 #include "common/edge_trace.h"
 #include "arm_uc_public.h"
-
 /* The protocol translator API include */
 #include "pt-client-2/pt_api.h"
 
+#define TRACE_GROUP "clnt-example"
 #define CPU_TEMPERATURE_DEVICE "cpu-temperature"
 
 connection_id_t g_connection_id = PT_API_CONNECTION_ID_INVALID;
@@ -49,24 +48,24 @@ sem_t g_shutdown_handler_called;
 pt_client_t *g_client = NULL;
 
 /**
- * \defgroup EDGE_PT_CLIENT_EXAMPLE Protocol translator client example.
+ * \defgroup EDGE_PT_CLIENT_EXAMPLE Protocol translator client example
  * @{
  */
 
 /**
  * \file client_example.c
- * \brief A usage example of the protocol translator API.
+ * \brief An example of the protocol translator API
  *
  * This file shows the protocol translator API in use. It describes how to start the protocol
  * translator client and connect it to Edge.
- * It also shows how the callbacks are used to react to the responses to called remote
+ * It also shows how to use callbacks to react to responses to called remote
  * functions.
  *
- * Note that the protocol translator client is run in event loop, so blocking
+ * The protocol translator client runs in an event loop, so blocking
  * in the callback handlers blocks the whole protocol translator client
  * from processing any further requests and responses. If there is a long
- * running operation for the responses in the callback handlers, you need
- * to move that work into thread.
+ * running operation for the responses in the callback handlers,
+ * move that work into a thread.
  */
 
 /**
@@ -87,9 +86,9 @@ volatile bool g_connected = false;
 pthread_cond_t g_connected_cond = PTHREAD_COND_INITIALIZER;
 
 /**
- * \brief Flag for protocol translator thread state.
+ * \brief Flag for protocol translator thread state
  *
- * true if the thread is not running.\n
+ * true if the thread is not running. \n
  * false if the thread is running.
  */
 volatile int g_protocol_translator_api_running = false;
@@ -232,7 +231,7 @@ static void shutdown_and_cleanup()
 }
 
 /**
- * \brief The client example shutdown handler.
+ * \brief The client example shutdown handler
  *
  * \param signum The signal number that initiated the shutdown handler.
  */
@@ -249,9 +248,9 @@ static bool is_shutdown_handler_called()
 }
 
 /**
- * \brief Set up the signal handler for catching signals from OS.
+ * \brief Set up the signal handler to catch signals from OS.
  * This example signal handler setup catches SIGTERM and SIGINT for shutting down
- * the protocol translator client gracefully.
+ * the protocol translator client properly.
  */
 bool setup_signals(void)
 {
@@ -275,7 +274,7 @@ bool setup_signals(void)
                 errno,
                 strerror(errno));
     }
-    // This is helpful for debugging. It allows to test shutdown by executing `kill -12 <pt-example-PID>`
+    // This is helpful for debugging. Test shutdown by executing `kill -12 <pt-example-PID>`.
     tr_info("Setting support for SIGUSR2");
     if (sigaction(SIGUSR2, &sa, NULL) != 0) {
         return false;
@@ -300,17 +299,17 @@ static void devices_registration_failure_cb(connection_id_t connection_id, void 
 }
 
 /**
- * \brief The implementation of the `pt_connection_ready_cb` function prototype from `pt-client/pt_api.h`.
+ * \brief Implementation of the `pt_connection_ready_cb` function prototype from `pt-client/pt_api.h`
  *
- * With this callback, you can react to the protocol translator being ready for passing a
- * message with the Edge Core.
+ * With this callback, you can react to the protocol translator being ready to pass a
+ * message with Edge Core.
  * The callback runs on the same thread as the event loop of the protocol translator client.
- * If the related functionality of the callback runs a long process, you need to move it to
+ * If the related functionality of the callback runs a long process, move it to
  * a worker thread. If the process runs directly in the callback, it
- * blocks the event loop and thus, blocks the protocol translator.
+ * blocks the event loop, and in turn, the protocol translator.
  *
- * \param connection_id The id of the connection which is ready.
- * \param userdata The user supplied context from the `pt_register_protocol_translator()` call.
+ * \param connection_id The ID of the connection.
+ * \param userdata The user-supplied context from the `pt_register_protocol_translator()` call.
  */
 void connection_ready_handler(connection_id_t connection_id, const char *name, void *userdata)
 {
@@ -324,9 +323,9 @@ void connection_ready_handler(connection_id_t connection_id, const char *name, v
  * With this callback, you can react to a successful protocol translator registration to Edge.
  *
  * The callback runs on the same thread as the event loop of the protocol translator client.
- * If the related functionality of the callback runs a long process, you need to move it
+ * If the related functionality of the callback runs a long process, move it
  * to a worker thread. If the process runs directly in the callback, it
- * blocks the event loop and thus, blocks the protocol translator.
+ * blocks the event loop, and in turn, the protocol translator.
  *
  * \param userdata The user-supplied context from the `pt_register_protocol_translator()` call.
  */
@@ -343,13 +342,13 @@ void protocol_translator_registration_success(void *userdata)
 }
 
 /**
- * \brief Protocol translator registration failure callback handler.
+ * \brief Protocol translator registration failure callback handler
  * With this callback, you can react to a failed protocol translator registration to Edge.
  *
  * The callback runs on the same thread as the event loop of the protocol translator client.
- * If the related functionality of the callback runs a long process, you need to move it to
+ * If the related functionality of the callback runs a long process, move it to
  * a worker thread. If the process runs directly in the callback, it
- * blocks the event loop and thus, blocks the protocol translator.
+ * blocks the event loop, and in turn, the protocol translator.
  *
  * \param userdata The user-supplied context from the `pt_register_protocol_translator()` call.
  */
@@ -362,17 +361,17 @@ void protocol_translator_registration_failure(void *userdata)
 }
 
 /**
- * \brief The implementation of the `pt_disconnected_cb` function prototype from `pt-client-2/pt_api.h`.
+ * \brief The implementation of the `pt_disconnected_cb` function prototype from `pt-client-2/pt_api.h`
  *
  * With this callback, you can react to the protocol translator being disconnected from
  * the Edge Core.
  * The callback runs on the same thread as the event loop of the protocol translator client.
- * If the related functionality of the callback runs a long process, you need to move it to
+ * If the related functionality of the callback runs a long process, move it to
  * a worker thread. If the process runs directly in the callback, it
- * blocks the event loop and thus, blocks the protocol translator.
+ * blocks the event loop, and in turn, the protocol translator.
  *
- * \param connection_id The ID of the connection which is disconnected.
- * \param userdata The user supplied context from the `pt_register_protocol_translator()` call.
+ * \param connection_id The ID of the disconnected connection.
+ * \param userdata The user-supplied context from the `pt_register_protocol_translator()` call.
  */
 void disconnected_handler(connection_id_t connection_id, void *userdata)
 {
@@ -384,16 +383,16 @@ void disconnected_handler(connection_id_t connection_id, void *userdata)
 
 /**
  * \brief Handles certificate renewal notification.
- *        This callback will be called to notify the status when a certificate renewal completes.
+ *        This callback is called to notify when a certificate renewal completes.
  * \param name The name of the certificate.
- * \param initiator 0 - device initiated the renewal \n
- *                  1 - cloud initiated the renewal
+ * \param initiator 0 - Device initiated the renewal. \n
+ *                  1 - Cloud initiated the renewal.
  * \param status Status of the certificate renewal.
- *               0 - for success. \n
+ *               0 - Success. \n
  *               Non-zero if error happened. See error codes in `ce_status_e` in
  *                   `certificate-enrollment-client/ce_defs.h`.
  * \param description Description of the status in string form for human readability.
- * \param userdata. The Userdata which was passed to `pt_client_start`.
+ * \param userdata. The Userdata passed to `pt_client_start`.
  */
 void certificate_renewal_notification_handler(const connection_id_t connection_id,
                                               const char *name,
@@ -436,29 +435,29 @@ pt_status_t device_certificate_renew_request_handler(const connection_id_t conne
  * The callback to be called when the protocol translator client is shutting down. This
  * lets the client application know when the pt-client is shutting down
  *
- * \param connection_id The ID of the connection which is closing down.
- * \param userdata The user supplied context from the `pt_register_protocol_translator()` call.
+ * \param connection_id The ID of the connection.
+ * \param userdata The user-supplied context from the `pt_register_protocol_translator()` call.
  */
 void shutdown_cb_handler(connection_id_t connection_id, void *userdata)
 {
     (void) connection_id;
     (void) userdata;
     tr_info("Shutting down pt client application, customer code");
-    // The connection went away. Main thread can quit now.
+    // The connection was lost. Main thread can close.
     if (false == get_keep_running()) {
         tr_warn("Already shutting down.");
         return;
     }
-    set_keep_running(false); // Close main thread
+    set_keep_running(false); // Close main thread.
 }
 
 /**
- * \brief A function to start the protocol translator API.
+ * \brief Start the protocol translator API
  *
- * This function is the protocol translator threads main entry point.
+ * This function is the protocol translator thread's main entry point.
  *
- * \param ctx The context object must containt `protocol_translator_api_start_ctx_t` structure
- * to pass the initialization data to protocol translator start function.
+ * \param ctx The context object must contain `protocol_translator_api_start_ctx_t`
+ * to pass the initialization data to the protocol translator start function.
  */
 void *protocol_translator_api_start_func(void *ctx)
 {
@@ -469,7 +468,7 @@ void *protocol_translator_api_start_func(void *ctx)
                              protocol_translator_registration_failure,
                              pt_start_ctx->name,
                              ctx)) {
-        set_keep_running(false); // Close main thread
+        set_keep_running(false); // Close main thread.
     }
     return NULL;
 }
@@ -498,11 +497,11 @@ static void *malloc_and_memcpy(void *src, size_t size)
  * \brief Update the given temperature to device object
  *
  * This function updates the given temperature to the device object.
- * Internally this function is responsible of changing the given float
- * byte-order to network byte-order. On little endian architecture the
- * byte-order is changed and on big endian architecture the order is unchanged.
+ * Internally, this function changes the given float
+ * byte-order to network byte-order. On little endian architecture, the
+ * byte-order is changed, and on big endian architecture, the order is unchanged.
  *
- * \param *device The pointer to device object to update
+ * \param *device The pointer to device object to update.
  * \param temperature The temperature in host network byte order.
  */
 void update_temperature_to_device(const char *device_id, float temperature)
@@ -525,7 +524,7 @@ void update_temperature_to_device(const char *device_id, float temperature)
     if (current != temperature) {
         float *nw_temperature = malloc(sizeof(float));
         convert_float_value_to_network_byte_order(temperature, (uint8_t *) nw_temperature);
-        /* The value is float, do not change the value_size, original size applies */
+        /* The value is a float. Do not change the value_size: original size applies. */
         pt_device_set_resource_value(g_connection_id,
                                      device_id,
                                      TEMPERATURE_SENSOR,
@@ -535,9 +534,9 @@ void update_temperature_to_device(const char *device_id, float temperature)
                                      sizeof(float),
                                      free);
 
-        /* Find the min and max resources and update those accordingly
-         * Brute force checks, if values are resetted the value changed check
-         * for the current value would possibly skip setting the min and max.
+        /* Find the min and max resources and update them accordingly.
+         * Brute force checks: if values are reset, the `value changed` check
+         * for the current value may skip setting the min and max.
          */
         bool min_exists = pt_device_resource_exists(g_connection_id,
                                                     device_id,
@@ -650,18 +649,19 @@ void unregister_success_handler(connection_id_t connection_id, const char *devic
     client_config_create_device_with_parameters(connection_id,
                                                 device_id,
                                                 NULL,      // userdata
-                                                "ARM",     // manufacturer
+                                                "Pelion",  // manufacturer
                                                 "example", // model_number
                                                 "001",     // serial_number
                                                 "example"  // device_type
     );
     // Re-register
-       ipso_create_sensor_object(connection_id,device_id, TEMPERATURE_SENSOR,0, "CEL", NULL);
-     ipso_add_min_max_fields(connection_id,
-                                device_id,
-                                TEMPERATURE_SENSOR,
-                                0,
-                                ipso_reset_min_max_object);
+    ipso_create_sensor_object(connection_id,device_id, TEMPERATURE_SENSOR,0, "CEL", NULL);
+    ipso_add_min_max_fields(connection_id,
+                            device_id,
+                            TEMPERATURE_SENSOR,
+                            0,
+                            ipso_reset_min_max_object);
+    tr_info("Asset Hash %s Asset Version %d", asset->hash, asset->version);
     pt_device_update_firmware_update_resources(connection_id, device_id, asset->hash, asset->version);
     pt_manifest_context_free(asset);
     pt_device_register(connection_id, device_id, device_register_success_handler, device_register_failure_handler, NULL);
@@ -680,14 +680,15 @@ void asset_manifest_success_handler(connection_id_t connection_id, const char *f
 {
     tr_info("Manifest Failure Reported to Edge-Core");
 }
+
 void asset_manifest_failure_handler(connection_id_t connection_id, const char *filename, int error_code, void *ctx)
 {
     tr_info("Manifest Failure Not Reported to Edge-Core");
 }
+
 void asset_download_success_handler(connection_id_t connection_id, const char *filename, int error_code, void *ctx)
 {
     pt_manifest_context_t *asset = (pt_manifest_context_t*) ctx;
-
     tr_info("Download request complete! Awaiting for async response to come back");
     tr_cmdline("Download complete! File location for %s:\r\n", filename);
     int c,count=0;
@@ -702,7 +703,7 @@ void asset_download_success_handler(connection_id_t connection_id, const char *f
 
     // Unregister device so we can re-register with new asset hash and version
     // Download campaign will complete after a re-register
-    pt_device_unregister(connection_id, asset->device_id, unregister_success_handler, unregister_failure_handler, ctx);
+    pt_device_unregister(connection_id, asset->device_id, unregister_success_handler, unregister_failure_handler, asset);
 }
 
 void asset_download_failure_handler(connection_id_t connection_id, const char *filename, int error_code, void *ctx)
@@ -712,51 +713,47 @@ void asset_download_failure_handler(connection_id_t connection_id, const char *f
     pt_manifest_context_free(asset);
 }
 
-pt_status_t manifest_handler(const connection_id_t connection_id,
-                             const char *device_id,
-                             const uint16_t object_id,
-                             const uint16_t instance_id,
-                             const uint16_t resource_id,
-                             const uint8_t operation,
-                             const uint8_t *value,
-                             const uint32_t value_size,
-                             void *userdata)
+pt_status_t manifest_class_and_vendor_handle(const connection_id_t connection_id,
+                                            const char *device_id,
+                                            const uint8_t operation,
+                                            const uint8_t *class_id,
+                                            const uint32_t class_size,
+                                            const uint8_t *vendor_id,
+                                            const uint32_t vendor_size,
+                                            const uint8_t* hash,
+                                            const uint32_t hash_len,
+                                            const uint8_t* url,
+                                            const uint32_t url_len,
+                                            uint64_t version,
+                                            uint32_t size,
+                                            void *userdata)
 {
+    tr_info("manifest_class_and_vendor_handle");
+
     (void) operation;
     (void) userdata;
 
-    tr_info("Manifest sent down to the device. Executing callback");
-
-    // Initialize the download asset context
-    pt_manifest_context_t *ctx = (pt_manifest_context_t *) calloc(1, sizeof(pt_manifest_context_t));
-    // Fill out the device ID in the context
+    pt_manifest_context_t* ctx = (pt_manifest_context_t*) calloc(1,sizeof(pt_manifest_context_t));
     memcpy(ctx->device_id, device_id, strlen(device_id));
-    ctx->device_id[strlen(device_id)] = 0;
-    // Fill the remaining fields of the context
-    arm_uc_update_result_t *error_manifest = (arm_uc_update_result_t *)malloc(sizeof(arm_uc_update_result_t));
-    if(error_manifest==NULL)
-    {
-        tr_err("Memory Allocation Error %s %d",__FUNCTION__,__LINE__);
-        free(ctx);
-        return PT_STATUS_ALLOCATION_FAIL;
-    }
-    memset(error_manifest,0,sizeof(arm_uc_update_result_t));
-    *error_manifest = ARM_UC_UPDATE_STATE_PROCESSING_MANIFEST;
-    pt_status_t status = pt_parse_manifest(value, value_size, ctx,error_manifest);
-    if (status != PT_STATUS_SUCCESS) {
-        tr_err("Error parsing manifest");
-        pt_subdevice_manifest_status(connection_id,
-                             device_id,
-                             error_manifest,
-                             asset_manifest_success_handler,
-                             asset_manifest_failure_handler,
-                             ctx);
-        free(error_manifest);
-        return PT_STATUS_SUCCESS;
-    }
-    free(error_manifest);
+    ctx->version = version;
+    memcpy(ctx->url,url, url_len);
+    ctx->size = size;
+     for(int i = 0; i< hash_len; i++)
+            sprintf(ctx->hash+i*2, "%02x", hash[i]);
+    tr_info("deviceId :%s url:%s hash:%s size:%d version:%d",device_id,ctx->url,ctx->hash,size,ctx->version);
 
-    //call download firmware routine
+    if(memcmp(vendor_id, MANIFEST_VENDOR_STR, strlen(vendor_id)) != 0) {
+        tr_error("Incorrect Vendor ID");
+        free(ctx);
+        return PT_STATUS_ERROR;
+    }
+
+    if(memcmp(class_id, MANIFEST_CLASS_STR, strlen(class_id)) != 0) {
+        tr_error("Incorrect CLASS ID");
+        free(ctx);
+        return PT_STATUS_ERROR;
+    }
+
     return pt_download_asset(connection_id,
                              device_id,
                              ctx->url,
@@ -767,16 +764,15 @@ pt_status_t manifest_handler(const connection_id_t connection_id,
                              ctx);
 }
 
-
-
 void main_loop(DocoptArgs *args)
 {
     wait_until_connected();
 
     char *cpu_temperature_device_id = malloc(strlen(CPU_TEMPERATURE_DEVICE) + strlen(args->endpoint_postfix) + 1);
+
     if (cpu_temperature_device_id) {
         sprintf(cpu_temperature_device_id, "%s%s", CPU_TEMPERATURE_DEVICE, args->endpoint_postfix);
-        pt_device_add_manifest_callback(g_connection_id, manifest_handler);
+        pt_device_add_manifest_callback(g_connection_id, manifest_class_and_vendor_handle);
         client_config_create_cpu_temperature_device(g_connection_id, cpu_temperature_device_id);
         pt_device_register(g_connection_id,
                            cpu_temperature_device_id,
@@ -806,24 +802,26 @@ void main_loop(DocoptArgs *args)
             sleep(5);
         }
     }
-    free(cpu_temperature_device_id);
+
+    if(cpu_temperature_device_id)
+        free(cpu_temperature_device_id);
 }
 
 #ifndef BUILD_TYPE_TEST
 /**
- * \brief Main entry point to the example application.
+ * \brief Main entry point to the example application
  *
  * Mandatory arguments:
  * \li Protocol translator name
  *
  * Optional arguments:
- * \li Endpoint postfix to indicate the running pt-example in device names.
+ * \li Endpoint postfix to indicate the running PT example in device names.
  * \li Edge domain socket path if default path is not used.
  *
  * Starts the protocol translator client and registers the connection ready callback handler.
  *
- * \param argc The number of the command line arguments.
- * \param argv The array of the command line arguments.
+ * \param argc The number of command line arguments.
+ * \param argv The array of command line arguments.
  */
 int main(int argc, char **argv)
 {
@@ -851,7 +849,7 @@ int main(int argc, char **argv)
     g_client = pt_client_create(args.edge_domain_socket,
                                 &pt_cbs);
 
-    /* Setup signal handler to catch SIGINT for shutdown */
+    /* Setup signal handler to catch SIGINT for shutdown. */
     if (!setup_signals()) {
         tr_err("Failed to setup signals.");
         return 1;
@@ -874,7 +872,7 @@ int main(int argc, char **argv)
     shutdown_and_cleanup();
 
     tr_info("Main thread waiting for protocol translator api to stop.");
-    // Note: to avoid a leak, we should join the created thread from the same thread it was created from.
+    // Note: to avoid a leak, join the created thread from the same thread it was created from.
     wait_for_protocol_translator_api_thread();
     free(ctx);
     pt_client_free(g_client);
