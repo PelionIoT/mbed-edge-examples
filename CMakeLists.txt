@@ -44,6 +44,7 @@ add_subdirectory (lib/${EDGE_SOURCES_DIR_NAME}/pt-client-2)
 add_subdirectory (lib/${EDGE_SOURCES_DIR_NAME}/lib/libevent)
 add_subdirectory (lib/${EDGE_SOURCES_DIR_NAME}/lib/libwebsockets)
 add_subdirectory (pt-example)
+add_subdirectory (c-api-stress-tester)
 
 # Conditionally build ble-pt if glib-2.0 is available
 unset(GLIB2_LIBRARIES CACHE)
