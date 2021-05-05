@@ -24,6 +24,10 @@ library these examples use Edge Core protocol translator and management API dire
 These are examples on how a protocol translator or management API application can be created using Javascript.
 See the [simple-js-examples/README.md](simple-js-examples/README.md) for instructions.
 
+## c-api-stress-tester
+
+This example tests the robustness and thread safeness of Protocol API C-API interface
+
 # Building the examples
 
 This section describes how the build the examples using Ubuntu 16.04.
