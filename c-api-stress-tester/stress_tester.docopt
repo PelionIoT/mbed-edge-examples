@@ -1,0 +1,19 @@
+C-API Stress tester.
+
+Usage:
+  c-api-stress-tester --protocol-translator-name <name> [--edge-domain-socket <domain-socket>] [--number-of-protocol-translators <count>] [--number-of-threads <thread-num>] [--max-devices <max-devices>] [--min-devices <min-devices>] [--test-duration-seconds <duration-seconds>] [--sleep-time-ms <milliseconds>] [--parallel-connection-lock <int>] [--color-log]
+  c-api-stress-tester --help
+
+Options:
+  -h --help                                      Show this screen.
+  -n --protocol-translator-name <name>           Name of the Protocol Translator.
+  --edge-domain-socket <string>                  Edge Core domain socket path. [default: /tmp/edge.sock]
+  -u --number-of-protocol-translators <count>    Number of protocol translators. [default: 1]
+  -t --number-of-threads <thread-num>            Number of threads to create. [default: 1]
+  -a --max-devices <max-devices>                 Max number of devices to create. [default: 100]
+  -i --min-devices <min-devices>                 Minimum number of devices to create. This affects to how many devices can be removed after creating. [default: 10]
+  -r --test-duration-seconds <duration-seconds>  Test duration in seconds. If duration is set to 0, runs for infinitely. [default: 0].
+  -l --parallel-connection-lock <int>            Parallel connection lock from application side. 1 enables. 0 disables. [default: 1]
+  -s --sleep-time-ms <milliseconds>              Thread sleep time in ms. Affects to how long tester thread waits until next operation. [default: 1000]
+  --color-log                                    Use ANSI colors in log.
+
