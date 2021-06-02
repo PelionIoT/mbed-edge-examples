@@ -1,5 +1,8 @@
 # Changelog for Edge examples
 
+## Release 0.17.0
+ * Updated git submodule mbed-edge to 0.17.0
+
 ## Release 0.16.0 (2021-03-15)
  * Updated git submodule mbed-edge to 0.16.0
  * PT and Gateway Resource Management (GRM) examples can now update LwM2M resource name while registering gateway or device resources.
