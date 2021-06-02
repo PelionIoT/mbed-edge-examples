@@ -19,5 +19,5 @@
 #   Renders client_example_clip.h from client_example.docopt.
 #
 
-python ../lib/docopt.c/docopt_c.py -t ../cli_template.tmpl -o client_example_clip.h client_example.docopt
+python3 ../lib/docopt.c/docopt_c.py -t ../cli_template.tmpl -o client_example_clip.h client_example.docopt
 
