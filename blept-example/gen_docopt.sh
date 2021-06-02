@@ -19,4 +19,4 @@
 #   Renders blept_example_clip.h from blept_example.docopt.
 #
 
-python ../lib/docopt.c/docopt_c.py -t ../cli_template.tmpl -o blept_example_clip.h blept_example.docopt
+python3 ../lib/docopt.c/docopt_c.py -t ../cli_template.tmpl -o blept_example_clip.h blept_example.docopt

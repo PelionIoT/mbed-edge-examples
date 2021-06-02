@@ -19,5 +19,5 @@
 #   Renders mqttpt_example_clip.h from mqttpt_example.docopt.
 #
 
-python ../lib/docopt.c/docopt_c.py -t ../cli_template.tmpl -o mqttpt_example_clip.h mqttpt_example.docopt
+python3 ../lib/docopt.c/docopt_c.py -t ../cli_template.tmpl -o mqttpt_example_clip.h mqttpt_example.docopt
 
