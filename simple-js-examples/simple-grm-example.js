@@ -102,8 +102,8 @@ EdgeGRMExample.prototype._createResourceParams = function(value1, value2) {
     // Values are always Base64 encoded strings.
     let resource1 = Buffer.from(value1).toString('base64')
 
-    let resource2 = Buffer.allocUnsafe(4);
-    resource2.writeFloatBE(value2);
+    let resource2 = Buffer.allocUnsafe(8);
+    resource2.writeDoubleBE(value2);
     resource2 = resource2.toString('base64');
 
     /* An IPSO/LwM2M Object is identified by a unique objectId
@@ -144,7 +144,7 @@ EdgeGRMExample.prototype.addResource = async function() {
     let self = this;
     return new Promise((resolve, reject) => {
 
-        params = self._createResourceParams("example-resource", 1.0);
+        params = self._createResourceParams("example-resource", 21.5);
 
         let timeout = setTimeout(() => {
             reject('Timeout');
@@ -172,7 +172,7 @@ EdgeGRMExample.prototype.updateResourceValue = async function() {
             reject('Timeout');
         }, TIMEOUT);
 
-        let params = self._createResourceParams("example-resource", 2.0);
+        let params = self._createResourceParams("example-resource", 19.4);
 
 
         self.client.send('write_resource_value', params,
@@ -190,8 +190,8 @@ EdgeGRMExample.prototype.updateResourceValue = async function() {
 EdgeGRMExample.prototype.exposeWriteMethod = function() {
     let self = this;
     self.client.expose('write', (params, response) => {
-        let valueBuff = new Buffer.from(params.value, 'base64');
-        let value = valueBuff.toString('utf-8');
+        // only '/33001/0/1' resource is WRITABLE, assume double
+        let value = new Buffer.from(params.value, 'base64').readDoubleBE();
         let resourcePath = params.uri.objectId + '/' + params.uri.objectInstanceId
             + '/' + params.uri.resourceId;
 

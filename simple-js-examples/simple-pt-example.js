@@ -101,11 +101,11 @@ EdgePTExample.prototype.registerProtocolTranslator = async function() {
 
 EdgePTExample.prototype._createDeviceParams = function(deviceId, temperatureValue, setPointValue) {
     // Values are always Base64 encoded strings.
-    let temperature = Buffer.allocUnsafe(4);
-    temperature.writeFloatBE(temperatureValue)
+    let temperature = Buffer.allocUnsafe(8);
+    temperature.writeDoubleBE(temperatureValue)
     temperature = temperature.toString('base64');
-    let setPoint = Buffer.allocUnsafe(4);
-    setPoint.writeFloatBE(setPointValue);
+    let setPoint = Buffer.allocUnsafe(8);
+    setPoint.writeDoubleBE(setPointValue);
     setPoint = setPoint.toString('base64');
 
     // An IPSO/LwM2M temperature sensor and set point sensor (thermostat)
@@ -188,8 +188,8 @@ EdgePTExample.prototype.updateExampleDeviceResources = async function(deviceId) 
     return new Promise((resolve, reject) => {
 
         params = self._createDeviceParams(deviceId,
-                                          19.5 /* temp */,
-                                          20.5 /* set point */);
+                                          17.4 /* temp */,
+                                          20.3 /* set point */);
 
         let timeout = setTimeout(() => {
             reject('Timeout');
@@ -210,6 +210,7 @@ EdgePTExample.prototype.updateExampleDeviceResources = async function(deviceId) 
 EdgePTExample.prototype.exposeWriteMethod = function() {
     let self = this;
     self.client.expose('write', (params, response) => {
+        // only '/3308/0/5900' resource is WRITABLE, assume double
         let value = new Buffer.from(params.value, 'base64').readDoubleBE();
         let resourcePath = params.uri.objectId + '/' + params.uri.objectInstanceId
             + '/' + params.uri.resourceId;
