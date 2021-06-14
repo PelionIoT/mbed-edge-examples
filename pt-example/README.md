@@ -57,3 +57,15 @@ The `pt-example` supports optional command-line parameters, see the help with:
 ```
 $ ./pt-example --help
 ```
+
+### Running with Docker
+
+Start edge-core:
+```
+docker run -v $PWD/mcc_config:/usr/src/app/mbed-edge/mcc_config -v /tmp:/tmp edge-core:latest
+```
+
+Start pt-example:
+```
+docker run -v /tmp:/tmp pt-example:latest
+```

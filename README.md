@@ -28,63 +28,103 @@ See the [simple-js-examples/README.md](simple-js-examples/README.md) for instruc
 
 This example tests the robustness and thread safeness of Protocol API C-API interface
 
-# Building the examples
+# Build and run the examples
 
-This section describes how the build the examples using Ubuntu 16.04.
+1. Directly on Ubuntu 20.04 or 18.04, or
+1. Using Docker.
 
-## Dependencies
+## Using Ubuntu 20.04 or 18.04:
 
-Following dependencies are needed in the build system.
+1. Dependencies
 
-* librt
-* libstdc++
-* OPTIONAL for mqttpt-example: libmosquitto
+    Following dependencies are needed in the build system.
 
-Install these:
+    * librt
+    * libstdc++
+    * OPTIONAL for mqttpt-example: libmosquitto
+
+    Install these:
+
+    ```
+    $ apt install build-essential git libc6-dev
+    $ apt install libmosquitto-dev mosquitto-clients
+    $ apt install libglib2.0-dev
+    ```
+
+1. Preparing all the sources
+
+    Please run the following to clone and update all the git modules.
+    ```
+    $ git submodule update --init --recursive
+    ```
+
+1. Building
+
+    Makefile has options to build any of the pt-examples separately, or all at the same.
+
+    To make all examples without debug information and with default trace level, run
+    ```
+    $ make build-all-examples
+    ```
+    It will build the examples to `build/bin` directory.
+
+    To make all examples with debug information and debug trace level, run
+    ```
+    $ make build-all-examples-debug
+    ```
+
+    It will build the examples to `build-debug/bin` directory.
+
+    To make all examples with ThreadSanitizer and debug trace level, run
+    ```
+    $ make build-all-examples-sanitize
+    ```
+
+    It will build the examples to `build-sanitize/bin` directory.
+
+    Running `make all` will generate `build`, `build-debug` and `build-sanitize` directories.
+
+    Please note following:
+    mqttpt-example will not be built if the libmosquitto is not installed.
+
+    For more examples, see the rules in the Makefile.
+
+1. Running the examples
+
+    Each of the examples has a README.md file that documents how to run the example.
+
+
+## Using Docker
+
+Before building the docker image, fetch the dependencies: 
+```
+git submodule update --init --recursive
+```
+
+### pt-example
+
+Build:
 
 ```
-$ apt install build-essential git libc6-dev
-$ apt install libmosquitto-dev mosquitto-clients
-$ apt install libglib2.0-dev
-```
-## Preparing all the sources
-
-Please run the following to clone and update all the git modules.
-```
-$ git submodule update --init --recursive
+docker build -t pt-example:latest -f ./Dockerfile.pt-example .
 ```
 
-## Building
+Run: 
 
-Makefile has options to build any of the pt-examples separately, or all at the same.
-
-To make all examples without debug information and with default trace level, run
 ```
-$ make build-all-examples
-```
-It will build the examples to `build/bin` directory.
-
-To make all examples with debug information and debug trace level, run
-```
-$ make build-all-examples-debug
+docker run -v /tmp:/tmp pt-example:latest
 ```
 
-It will build the examples to `build-debug/bin` directory.
+### simple-js-examples/simple-pt-example
 
-To make all examples with ThreadSanitizer and debug trace level, run
+Build:
+
 ```
-$ make build-all-examples-sanitize
+docker build -t simple-pt-example:latest -f ./Dockerfile.simple-pt-example .
 ```
 
-It will build the examples to `build-sanitize/bin` directory.
+Run in interactive mode:
 
-Running `make all` will generate `build`, `build-debug` and `build-sanitize` directories.
-
-Please note following:
-mqttpt-example will not be built if the libmosquitto is not installed.
-
-For more examples, see the rules in the Makefile.
-
-# Running the examples
-
-Each of the examples has a README.md file that documents how to run the example.
+```
+docker run -v /tmp:/tmp -it simple-pt-example:latest
+```

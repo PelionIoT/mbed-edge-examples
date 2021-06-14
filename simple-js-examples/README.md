@@ -93,6 +93,10 @@ Fixed values for the example:
    ```bash
    $ nodejs simple-pt-example.js
    ```
+   Or, using docker
+   ```
+   docker run -v /tmp:/tmp -it simple-pt-example:latest
+   ```
 1. Monitor the registered Edge and endpoint device from Device Management Portal.
 
 ## Running the management API example
