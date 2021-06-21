@@ -46,6 +46,7 @@
 connection_id_t g_connection_id = PT_API_CONNECTION_ID_INVALID;
 sem_t g_shutdown_handler_called;
 pt_client_t *g_client = NULL;
+#define MANIFEST_VENDOR_CLASS_SIZE 16
 
 /**
  * \defgroup EDGE_PT_CLIENT_EXAMPLE Protocol translator client example
@@ -642,7 +643,7 @@ void unregister_success_handler(connection_id_t connection_id, const char *devic
     pt_manifest_context_t *asset = (pt_manifest_context_t*) userdata;
 
     // Mimicks a physical device reboot
-    tr_cmdline("Re-booting device! Waiting 5 seconds...\n");
+    tr_cmdline("Re-booting device! Waiting 5 seconds...");
     sleep(5);
 
     // Formulate new device struct because unregister nuked previous device struct
@@ -661,8 +662,8 @@ void unregister_success_handler(connection_id_t connection_id, const char *devic
                             TEMPERATURE_SENSOR,
                             0,
                             ipso_reset_min_max_object);
-    tr_info("Asset Hash %s Asset Version %d", asset->hash, asset->version);
-    pt_device_update_firmware_update_resources(connection_id, device_id, asset->hash, asset->version);
+    tr_info( "Asset Version %s",  asset->version);
+    pt_device_update_firmware_update_resources(connection_id, device_id, asset->version);
     pt_manifest_context_free(asset);
     pt_device_register(connection_id, device_id, device_register_success_handler, device_register_failure_handler, NULL);
 }
@@ -713,42 +714,39 @@ void asset_download_failure_handler(connection_id_t connection_id, const char *f
     pt_manifest_context_free(asset);
 }
 
-pt_status_t manifest_class_and_vendor_handle(const connection_id_t connection_id,
+pt_status_t manifest_meta_data_handle(const connection_id_t connection_id,
                                             const char *device_id,
                                             const uint8_t operation,
                                             const uint8_t *class_id,
                                             const uint32_t class_size,
                                             const uint8_t *vendor_id,
                                             const uint32_t vendor_size,
-                                            const uint8_t* hash,
-                                            const uint32_t hash_len,
-                                            const uint8_t* url,
-                                            const uint32_t url_len,
-                                            uint64_t version,
-                                            uint32_t size,
+                                            char* version,
+                                            uint64_t size,
                                             void *userdata)
 {
-    tr_info("manifest_class_and_vendor_handle");
+    tr_info("manifest_meta_data_handle");
 
     (void) operation;
     (void) userdata;
 
     pt_manifest_context_t* ctx = (pt_manifest_context_t*) calloc(1,sizeof(pt_manifest_context_t));
     memcpy(ctx->device_id, device_id, strlen(device_id));
-    ctx->version = version;
-    memcpy(ctx->url,url, url_len);
+    memcpy(ctx->version, version, strlen(version));
     ctx->size = size;
-     for(int i = 0; i< hash_len; i++)
-            sprintf(ctx->hash+i*2, "%02x", hash[i]);
-    tr_info("deviceId :%s url:%s hash:%s size:%d version:%d",device_id,ctx->url,ctx->hash,size,ctx->version);
 
-    if(memcmp(vendor_id, MANIFEST_VENDOR_STR, strlen(vendor_id)) != 0) {
+    tr_info("deviceId :%s Size:%ld version:%s",device_id,size,ctx->version);
+
+    uint8_t r_vendor_id[MANIFEST_VENDOR_CLASS_SIZE+1] = {0};
+    uint8_t r_class_id[MANIFEST_VENDOR_CLASS_SIZE+1] = {0};
+    memcpy(r_vendor_id, MANIFEST_VENDOR_STR, MANIFEST_VENDOR_STR_SIZE);
+    memcpy(r_class_id, MANIFEST_CLASS_STR, MANIFEST_CLASS_STR_SIZE);
+    if(memcmp(vendor_id, r_vendor_id, MANIFEST_VENDOR_CLASS_SIZE) != 0) {
         tr_error("Incorrect Vendor ID");
         free(ctx);
         return PT_STATUS_ERROR;
     }
-
-    if(memcmp(class_id, MANIFEST_CLASS_STR, strlen(class_id)) != 0) {
+    if(memcmp(class_id, r_class_id, MANIFEST_VENDOR_CLASS_SIZE) != 0) {
         tr_error("Incorrect CLASS ID");
         free(ctx);
         return PT_STATUS_ERROR;
@@ -756,8 +754,6 @@ pt_status_t manifest_class_and_vendor_handle(const connection_id_t connection_id
 
     return pt_download_asset(connection_id,
                              device_id,
-                             ctx->url,
-                             ctx->hash,
                              ctx->size,
                              asset_download_success_handler,
                              asset_download_failure_handler,
@@ -772,7 +768,7 @@ void main_loop(DocoptArgs *args)
 
     if (cpu_temperature_device_id) {
         sprintf(cpu_temperature_device_id, "%s%s", CPU_TEMPERATURE_DEVICE, args->endpoint_postfix);
-        pt_device_add_manifest_callback(g_connection_id, manifest_class_and_vendor_handle);
+        pt_device_add_manifest_callback(g_connection_id, manifest_meta_data_handle);
         client_config_create_cpu_temperature_device(g_connection_id, cpu_temperature_device_id);
         pt_device_register(g_connection_id,
                            cpu_temperature_device_id,
