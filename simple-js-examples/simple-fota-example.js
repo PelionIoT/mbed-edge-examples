@@ -39,7 +39,7 @@ const OPERATIONS = {
 	EXECUTE: 0x04,
 	DELETE: 0x08,
 };
-const DEVICE_ID = "pb-example-fota-device-05C"
+const DEVICE_ID = "example-fota-device"
 
 function EdgePTExample() {
 	this.name = "simple-pt-example-fota";
