@@ -1,5 +1,16 @@
 # Changelog for Edge examples
 
+## Release 0.18.0
+
+### Features
+ * Updated git submodule mbed-edge to 0.18.0
+ * Updated docopt script to use python3.
+ * Use double in node.js examples to fix conversion errors.
+ * Added Dockerfile to build and run pt-example and simple-js-examples inside docker container.
+
+### Known issues
+ * Pelion Device Management users do not receive notifications for the translated device’s LwM2M resources which are registered with operations write (PUT) or execute (POST).
+
 ## Release 0.17.0
  * Updated git submodule mbed-edge to 0.17.0
 
