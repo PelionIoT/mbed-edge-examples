@@ -1,7 +1,7 @@
 # Simple Javascript protocol translator and management example
 
 ## simplt-fota-example.js
-These example protocol translators demostrate the fota capanilities supported. The PT needs to register these resources:
+These example protocol translators demostrate the fota capabilities. The PT needs to register these resources:
 
 | Resource                   | Object id | Instance id | Resource id |
 |----------------------------|------------|-------------|-------------|
@@ -16,9 +16,9 @@ These example protocol translators demostrate the fota capanilities supported. T
 | Bootloader hash            | 10255      | 0           | 1        |
 | OEM bootloader hash        | 10255      | 0           | 2        |
 | Vendor UUID                | 10255      | 0           | 3        |
-| Class UUID                 | 10255         | 0          | 4           |          |
+| Class UUID                 | 10255      | 0           | 4        |
 
-The edge-core uses these resources to receive the manifest, send the status as well as result back to the cloud. The PT needs to implement the function that receives the vendorid, classid, version and firmware size using `manifest_meta_data api`. The PT then verifies the vendor and class id. Upon successfull verification, the PT needs to send the download request to the edge-core using `download_asset api`. If the edge-core successfully downloaded the firmware, the PT receives the path of the downloaded binary, otherwise it gets the error. The PT then needs to deregister the device and starts the firmware update process. The PT then registers the device with the new firmware version(14/0/2) that it received from the `manifest_meta_data api`. 
+The edge-core uses these resources to receive the manifest, send the status as well as result back to the cloud. The PT needs to implement the function that receives the vendorid, classid, version and firmware size using `manifest_meta_data api`. The PT then needs to verifies the vendor and class id. Upon successfull verification, the PT needs to send the download request to the edge-core using `download_asset api`. If the edge-core successfully downloaded the firmware, the PT receives the path of the downloaded binary, otherwise it gets the error. The PT then needs to deregister the device and starts the firmware update process. The PT then registers the device with the new firmware version(14/0/2) that it received from the `manifest_meta_data api`.
 
 ## simple-pt-example.js and pt-crypto-api-example.js
 
