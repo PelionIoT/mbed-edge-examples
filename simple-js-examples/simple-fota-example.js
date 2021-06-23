@@ -41,7 +41,7 @@ const OPERATIONS = {
 	EXECUTE: 0x04,
 	DELETE: 0x08,
 };
-const DEVICE_ID = "example-fota-device"
+const DEVICE_ID = "example-fota-device-pb05A"
 
 function EdgePTExample() {
 	this.name = "simple-pt-example-fota";
@@ -148,10 +148,10 @@ EdgePTExample.prototype._createDeviceParams = function (
 	version
 ) {
 	// Values are always Base64 encoded strings.
-	let temperature = Buffer.allocUnsafe(4);
+	let temperature = Buffer.allocUnsafe(8);
 	temperature.writeDoubleBE(temperatureValue);
 	temperature = temperature.toString("base64");
-	let setPoint = Buffer.allocUnsafe(4);
+	let setPoint = Buffer.allocUnsafe(8);
 	setPoint.writeDoubleBE(setPointValue);
 	setPoint = setPoint.toString("base64");
 	let data = "0";
