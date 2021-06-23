@@ -26,9 +26,11 @@ const promisify = require("es6-promisify");
 const RED = "\x1b[31m[EdgePTExample]\x1b[0m";
 const GREEN = "\x1b[32m[EdgePTExample]\x1b[0m";
 const YELLOW = "\x1b[33m[EdgePTExample]\x1b[0m";
-
-const VENDORID = Buffer.from([0xee, 0x3a ,0x0c ,0xcb ,0xa2 ,0x2a ,0x46 ,0xef ,0xac ,0xf2 ,0x9e ,0x5f ,0x9c ,0xcf ,0x85 ,0xf5]);
-const CLASSID = Buffer.from([0x6c, 0x7a, 0xb5, 0x0d, 0xc8, 0x62, 0x4f, 0x7a, 0xb3, 0x38, 0xa0, 0xf4, 0xf2, 0x08, 0x5e, 0xdf]);
+// example vendor id and class id
+const VENDORID = Buffer.from([0x53, 0x55, 0x42, 0x44, 0x45, 0x56, 0x49, 0x43, 0x45, 0x2d, 0x56, 0x45, 0x4e, 0x44, 0x4f, 0x52]);
+const CLASSID = Buffer.from([0x53, 0x55, 0x42, 0x44, 0x45, 0x56, 0x49, 0x43, 0x45, 0x2d, 0x2d, 0x43, 0x4c, 0x41, 0x53, 0x53]);
+// this example is using manifest version 4 therefore this should be 4
+const PROT_VERSION = 4;
 // Timeout time in milliseconds
 const TIMEOUT = 10000;
 const TIMEOUT_FOR_FOTA = 1800000; // 30 mins.
@@ -139,8 +141,6 @@ EdgePTExample.prototype.registerProtocolTranslator = async function () {
 	});
 };
 
-// update 10252/0/3 with  and 10252/0/2 after completion of update
-
 EdgePTExample.prototype._createDeviceParams = function (
 	deviceId,
 	temperatureValue,
@@ -149,18 +149,17 @@ EdgePTExample.prototype._createDeviceParams = function (
 ) {
 	// Values are always Base64 encoded strings.
 	let temperature = Buffer.allocUnsafe(4);
-	temperature.writeFloatBE(temperatureValue);
+	temperature.writeDoubleBE(temperatureValue);
 	temperature = temperature.toString("base64");
 	let setPoint = Buffer.allocUnsafe(4);
-	setPoint.writeFloatBE(setPointValue);
+	setPoint.writeDoubleBE(setPointValue);
 	setPoint = setPoint.toString("base64");
 	let data = "0";
 	let buff = new Buffer.from(data);
 	let base64data = buff.toString("base64");
 
-	let prot_version = 4;
 	let value4 = Buffer.alloc(4);
-	value4.writeInt32BE(prot_version);
+	value4.writeInt32BE(PROT_VERSION);
 	let fourvalue = value4.toString('base64');
 
 	let vendorid = "";
@@ -390,6 +389,7 @@ EdgePTExample.prototype.updateExampleDeviceResources = async function (
 	});
 };
 
+// updating the manifest resources after the firmware update.
 EdgePTExample.prototype.updateExampleManifestResources = async function (
 	deviceId,
 	fw_version
@@ -416,7 +416,7 @@ EdgePTExample.prototype.exposeVendorandClass = function () {
 	let self = this;
 	self.client.expose("manifest_meta_data", (params, response) => {
 		// checking the request
-		if (params.uri.deviceId == null || params.classid == null || params.vendorid ==null || params.component_name == null) {
+		if (params.uri.deviceId == null || params.classid == null || params.vendorid == null || params.component_name == null || params.version == null ) {
 			console.log(RED,"Missing any of the filed in params: classid, deviceId, vendorid , url, version, component_name");
 			response({
 			"code": -32602,
@@ -455,7 +455,6 @@ EdgePTExample.prototype.exposeVendorandClass = function () {
 			self.client.send("download_asset", send_data ,function (error, response) {
 				clearTimeout(timeout);
 				if (!error) {
-					//console.log(response)
 					console.log(GREEN,"Updating Device, Firmware file location "+response.filename)
 					self.unregisterExampleDevice(DEVICE_ID).then((a) => {
 						console.log(GREEN,"Rebooting device.")
