@@ -41,7 +41,7 @@ const OPERATIONS = {
 	EXECUTE: 0x04,
 	DELETE: 0x08,
 };
-const DEVICE_ID = "example-fota-device-pb05A"
+const DEVICE_ID = "example-fota-device"
 
 function EdgePTExample() {
 	this.name = "simple-pt-example-fota";
@@ -174,6 +174,7 @@ EdgePTExample.prototype._createDeviceParams = function (
 	}
 	let classbuff = new Buffer.from(classid);
 	let base64class = classbuff.toString("base64")
+	// component name, this can be main
 	let main_buff = new Buffer.from("MAIN");
 	let main_base64 = main_buff.toString("base64")
 	let ver_buff = new Buffer.from(version);
