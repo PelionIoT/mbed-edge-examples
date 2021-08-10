@@ -1,6 +1,6 @@
 /*
  * ----------------------------------------------------------------------------
- * Copyright 2021 ARM Ltd.
+ * Copyright 2021 Pelion Ltd.
  *
  * SPDX-License-Identifier: Apache-2.0
  *
