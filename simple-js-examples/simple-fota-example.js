@@ -161,19 +161,8 @@ EdgePTExample.prototype._createDeviceParams = function (
 	let value4 = Buffer.alloc(4);
 	value4.writeInt32BE(PROT_VERSION);
 	let fourvalue = value4.toString('base64');
-
-	let vendorid = "";
-	for(itr of VENDORID) {
-		vendorid = vendorid+itr.toString(16)
-	}
-	let buffvendor = new Buffer.from(vendorid);
-	let base64vendor = buffvendor.toString("base64")
-	let classid = ""
-	for(itr of CLASSID) {
-		classid = classid+itr.toString(16)
-	}
-	let classbuff = new Buffer.from(classid);
-	let base64class = classbuff.toString("base64")
+	let base64vendor = VENDORID.toString("base64")
+	let base64class = CLASSID.toString("base64")
 	// component name, this can be main
 	let main_buff = new Buffer.from("MAIN");
 	let main_base64 = main_buff.toString("base64")
