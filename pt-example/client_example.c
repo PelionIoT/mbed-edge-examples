@@ -36,7 +36,6 @@
 
 #include "mbed-trace/mbed_trace.h"
 #include "common/edge_trace.h"
-#include "arm_uc_public.h"
 /* The protocol translator API include */
 #include "pt-client-2/pt_api.h"
 
