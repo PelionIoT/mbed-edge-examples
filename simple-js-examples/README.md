@@ -33,7 +33,7 @@ Libraries are used to handle the websocket and JSONRPC 2.0 communication.
 
 Please study the example code to see how to use the protocol translator
 JSONRPC 2.0 API and read the relevant documentation for Edge APIs from
-[Device Management Docs](https://cloud.mbed.com/docs/current).
+[Device Management Docs](https://developer.izumanetworks.com/docs/device-management-edge/latest/protocol-translator/index.html).
 
 ## simple-mgmt-example.js
 
@@ -50,7 +50,7 @@ Libraries are used to handle the websocket and JSONRPC 2.0 communication.
 
 Please study the example code to see how to use the management JSONRPC 2.0
 API and read the relevant documentation for Edge APIs from
-[Device Management Docs](https://cloud.mbed.com/docs/current).
+[Device Management Docs](https://developer.izumanetworks.com/docs/device-management-edge/latest/protocol-translator/index.html).
 
 ## simple-grm-example.js
 
@@ -64,7 +64,7 @@ Libraries are used to handle the websocket and JSONRPC 2.0 communication.
 
 Please study the example code to see how to use the gateway resource manager
 JSONRPC 2.0 API and read the relevant documentation for Edge APIs from
-[Device Management Docs](https://cloud.mbed.com/docs/current).
+[Device Management Docs](https://developer.izumanetworks.com/docs/device-management-edge/latest/protocol-translator/index.html).
 
 ## Dependencies
 
