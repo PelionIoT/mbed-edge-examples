@@ -151,7 +151,7 @@ where `device_name` is the device that is performing the enrollment, `certificat
 
 #### Cloud initiated certificate renewal
 
-The renewal or enrollment operation can also be requested from the cloud, for this [see service API documentation on certificate enrollment](https://www.pelion.com/docs/device-management/current/service-api-references/certificate-enrollment.html). When a certificate enrollment is requested from the cloud, a certificate renewal request is published to `MQTTPt/DeviceCertificateRenewalRequest` topic with the payload containing the device name and certificate name. After a certificate renewal request is received, the enrollment should be continue the same way as in the [device initiated renewal](#Device-initiated-certificate-renewal).
+The renewal or enrollment operation can also be requested from the cloud, for this [see service API documentation on certificate enrollment](https://developer.izumanetworks.com/docs/device-management-api/certificate-enrollment/). When a certificate enrollment is requested from the cloud, a certificate renewal request is published to `MQTTPt/DeviceCertificateRenewalRequest` topic with the payload containing the device name and certificate name. After a certificate renewal request is received, the enrollment should be continue the same way as in the [device initiated renewal](#Device-initiated-certificate-renewal).
 
 #### Generating test CSR
 

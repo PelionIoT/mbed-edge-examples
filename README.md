@@ -43,7 +43,7 @@ This example tests the robustness and thread safeness of Protocol API C-API inte
     * libstdc++
     * OPTIONAL for mqttpt-example: libmosquitto
 
-    Install these:
+    Install these (using `sudo` typically):
 
     ```
     $ apt install build-essential git libc6-dev
