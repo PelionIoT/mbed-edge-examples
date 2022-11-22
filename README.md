@@ -46,16 +46,16 @@ This example tests the robustness and thread safeness of Protocol API C-API inte
     Install these (using `sudo` typically):
 
     ```
-    $ apt install build-essential git libc6-dev
-    $ apt install libmosquitto-dev mosquitto-clients
-    $ apt install libglib2.0-dev
+    apt install build-essential git libc6-dev
+    apt install libmosquitto-dev mosquitto-clients
+    apt install libglib2.0-dev
     ```
 
 1. Preparing all the sources
 
     Please run the following to clone and update all the git modules.
     ```
-    $ git submodule update --init --recursive
+    git submodule update --init --recursive
     ```
 
 1. Building
@@ -64,20 +64,20 @@ This example tests the robustness and thread safeness of Protocol API C-API inte
 
     To make all examples without debug information and with default trace level, run
     ```
-    $ make build-all-examples
+    make build-all-examples
     ```
     It will build the examples to `build/bin` directory.
 
     To make all examples with debug information and debug trace level, run
     ```
-    $ make build-all-examples-debug
+    make build-all-examples-debug
     ```
 
     It will build the examples to `build-debug/bin` directory.
 
     To make all examples with ThreadSanitizer and debug trace level, run
     ```
-    $ make build-all-examples-sanitize
+    make build-all-examples-sanitize
     ```
 
     It will build the examples to `build-sanitize/bin` directory.
