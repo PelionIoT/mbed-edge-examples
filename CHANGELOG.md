@@ -1,5 +1,10 @@
 # Changelog for Edge examples
 
+## Release 0.20.0
+
+* Update `mbed-edge` submodule to 0.20.0.
+    * This updates `mbed-cloud-client` to version 4.13.0.
+    * This updates `mbedTLS` to version 2.28.1.
 ## Release 0.19.0
 
 * Update mbed-edge submodule to 0.19.0.
