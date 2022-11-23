@@ -12,7 +12,7 @@ client API.
 This example creates three mediated devices and registers then to
 Device Management. There are two temperature sensors and one thermometer. The
 `cpu-temperature` device is created only if the underlying operating system
-provides CPU temperature values from the `/sys/class/thermal/thermalzone[N]` file.
+provides CPU temperature values from the `/sys/class/thermal/thermal_zone[N]` file.
 Otherwise the CPU temperature values are random values.
 The reset operation is supported for the `cpu-temperature` and it can be
 triggered by sending a `POST` operation from Device Management to that resource. Also
