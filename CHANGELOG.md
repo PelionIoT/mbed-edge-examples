@@ -1,5 +1,9 @@
 # Changelog for Edge examples
 
+## Release 0.20.0
+
+* Update mbed-edge submodule to 0.20.0.
+
 ## Release 0.19.0
 
 * Update mbed-edge submodule to 0.19.0.
