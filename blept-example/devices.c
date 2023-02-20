@@ -1,6 +1,7 @@
 /*
  * ----------------------------------------------------------------------------
  * Copyright 2018 ARM Ltd.
+ * Copyright (c) 2023 Izuma Networks
  *
  * SPDX-License-Identifier: Apache-2.0
  *
@@ -34,7 +35,7 @@
 #include <sys/time.h>
 
 #define LIFETIME                                                                                                       \
-    300 // this setting currently has no effect. The translated endpoints are tracked withing the parent Edge device
+    300 // this setting currently has no effect. The translated endpoints are tracked within the parent Edge device
         // lifetime. Please see BLE_MAX_BACK_OFF_TIME_SECS for related configuration.
 #define TRACE_GROUP     "BLEC"
 

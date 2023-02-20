@@ -16,7 +16,7 @@ These example protocol translators demostrate the fota capabilities. The PT need
 | Vendor UUID                | 10255      | 0           | 3        |
 | Class UUID                 | 10255      | 0           | 4        |
 
-The edge-core uses these resources to receive the manifest, send the status as well as the result back to the cloud. The PT needs to implement the function that receives the vendorid, classid, version and firmware size using `manifest_meta_data` api. The PT then needs to verifies the vendor and class id. Upon successfull verification, the PT needs to send the download request to the edge-core using `download_asset` api. If the edge-core successfully downloaded the firmware, the PT receives the path of the downloaded binary, otherwise it gets the error. The PT then needs to deregister the device and starts the firmware update process. The PT then registers the device with the new firmware version(14/0/2) that it received from the `manifest_meta_data` api.
+The edge-core uses these resources to receive the manifest, send the status as well as the result back to the cloud. The PT needs to implement the function that receives the vendorid, classid, version and firmware size using `manifest_meta_data` api. The PT then needs to verifies the vendor and class id. Upon successful verification, the PT needs to send the download request to the edge-core using `download_asset` api. If the edge-core successfully downloaded the firmware, the PT receives the path of the downloaded binary, otherwise it gets the error. The PT then needs to deregister the device and starts the firmware update process. The PT then registers the device with the new firmware version(14/0/2) that it received from the `manifest_meta_data` api.
 
 ## simple-pt-example.js and pt-crypto-api-example.js
 
@@ -39,7 +39,7 @@ JSONRPC 2.0 API and read the relevant documentation for Edge APIs from
 
 This example management application demostrates the calls and parameters to pass
 to Edge core management API. The websocket connection and JSONRPC 2.0
-specification and communciation is left out of the scope to keep the
+specification and communication is left out of the scope to keep the
 example simple.
 
 This application is interactive and supports few command that can be given

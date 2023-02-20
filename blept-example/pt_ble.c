@@ -1,7 +1,8 @@
 /*
  * ----------------------------------------------------------------------------
  * Copyright 2018 ARM Ltd.
- *
+ * Copyright (c) 2023 Izuma Networks
+ * 
  * SPDX-License-Identifier: Apache-2.0
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -59,7 +60,7 @@
 #define BLE_DEVICE_ADDRESS_SIZE 18
 #define BLE_DEVICE_NAME_MAX_LENGTH 33
 #define MAX_PATH_LENGTH 256
-#define MAX_VALUE_STRING_LENGHT 10
+#define MAX_VALUE_STRING_LENGTH 10
 #define TRACE_GROUP "BLE"
 #define BLE_VALUE_READ_INTERVAL 5000
 #define BLE_RETRY_SLEEP_TIME_INITIAL_SECS 4
