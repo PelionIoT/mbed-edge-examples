@@ -72,7 +72,7 @@ This example uses `node.js v8` or higher.
 
 Install the dependencies:
 ```bash
-$ npm install
+npm install
 ```
 
 Dependencies are:
@@ -90,7 +90,7 @@ Dependencies are:
 
 The list with version can be listed with:
 ```bash
-$ npm ls
+npm ls
 ```
 
 ## Running the protocol translator example
@@ -109,7 +109,7 @@ Fixed values for the example:
    from [Device Management Portal](https://portal.mbedcloud.com)
 1. Run this example and connect to Edge.
    ```bash
-   $ nodejs simple-pt-example.js
+   nodejs simple-pt-example.js
    ```
    Or, using docker
    ```
@@ -130,7 +130,7 @@ Fixed values for the example:
    [Edge examples](https://github.com/PelionIoT/mbed-edge-examples).
 1. Run this example and connect to Edge.
    ```bash
-   $ nodejs simple-mgmt-example.js
+   nodejs simple-mgmt-example.js
    ```
 1. Use the `connect()` function provided by the interactive example to connect
    to the Edge Core.
@@ -152,7 +152,7 @@ Fixed values for the example:
    from [Device Management Portal](https://portal.mbedcloud.com)
 1. Run this example and connect to Edge.
    ```bash
-   $ nodejs simple-grm-example.js
+   nodejs simple-grm-example.js
    ```
 1. Follow the command prompt to register resource manager, add gateway resources and update them.
 1. Monitor the registered Edge and gateway resources from Device Management Portal.
