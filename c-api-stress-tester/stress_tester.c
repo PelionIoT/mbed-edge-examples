@@ -1,6 +1,7 @@
 /*
  * ----------------------------------------------------------------------------
  * Copyright 2018 ARM Ltd.
+ * Copyright 2023 (c) Izuma Networks
  * ----------------------------------------------------------------------------
  */
 #define _POSIX_C_SOURCE 200809L
@@ -713,7 +714,7 @@ void *protocol_translator_api_start_func(void *ctx)
     pt_cbs.received_write_cb = (pt_received_write_handler) received_write_handler;
     pt_cbs.connection_shutdown_cb = (pt_connection_shutdown_cb) shutdown_cb_handler;
     pt_api_thread_t *api_data = pt_start_ctx->api_thread;
-    // Don't lock connection mutex here, because this funtion starts the eventloop.
+    // Don't lock connection mutex here, because this function starts the eventloop.
     if (0 != pt_client_start(pt_start_ctx->socket_path,
                              pt_start_ctx->name,
                              &pt_cbs,

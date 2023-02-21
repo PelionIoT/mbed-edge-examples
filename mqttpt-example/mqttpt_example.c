@@ -1,6 +1,7 @@
 /*
  * ----------------------------------------------------------------------------
  * Copyright 2018 ARM Ltd.
+ * Copyright (c) 2023 Izuma Networks
  *
  * SPDX-License-Identifier: Apache-2.0
  *
@@ -166,7 +167,7 @@ static void publish_to_mqtt(const char *topic, json_t *json_message)
 
 /* Success message format:
  * {
- * "request_id": "id of the request that was succesful",
+ * "request_id": "id of the request that was successful",
  * "value": "response value for the request"
  * }
  */

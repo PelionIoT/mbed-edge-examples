@@ -49,13 +49,13 @@ hold the sensor value.
 Start edge-core:
 
 ```
-$ ./edge-core
+./edge-core
 ```
 
 Start the mqttpt-example:
 
 ```
-$ mqttpt-example
+mqttpt-example
 ```
 
 On Device Management, you should see the MQTT endpoints appear as new devices and they
@@ -66,7 +66,7 @@ The mqttpt-example supports optional command-line parameters, for example to set
 For help, use:
 
 ```
-$ mqttpt-example --help
+mqttpt-example --help
 ```
 
 ### Crypto API
@@ -76,13 +76,13 @@ To subscribe to certificate renewal notifications, do the following when the gat
 connected state:
 
 ```
-$ mqttgw_sim/mqtt_gw_crypto_api.sh set-certificates-list certificate_names
+mqttgw_sim/mqtt_gw_crypto_api.sh set-certificates-list certificate_names
 ```
 
 To renew a certificate, it must first be added to the certificate list with the `set-certificates-list` operation as described above. To renew a certificate, do the following:
 
 ```
-$ mqttgw_sim/mqtt_gw_crypto_api.sh renew-certificate certificate_name
+mqttgw_sim/mqtt_gw_crypto_api.sh renew-certificate certificate_name
 ```
 
 Only one certificate can be renewed at a time, and the certificate identified by `certificate_name` must exist on the device. It's supported to renew factory provisioned certificates, 
@@ -92,8 +92,8 @@ for example ones created by the FCU tool. Renewing developer certificates is not
 To test out fetching of the certificate or public key, do the following when the gateway is in the connected state:
 
 ```
-$ mqttgw_sim/mqtt_gw_crypto_api.sh get-certificate certificate_name
-$ mqttgw_sim/mqtt_gw_crypto_api.sh get-public-key certificate_name
+mqttgw_sim/mqtt_gw_crypto_api.sh get-certificate certificate_name
+mqttgw_sim/mqtt_gw_crypto_api.sh get-public-key certificate_name
 ```
 
 Only one certificate or public key can be fetched at the same time. The certificates identified by `certificate_name`
@@ -102,8 +102,8 @@ must exist on the device.
 To test out the asymmetric signing and verifying, do the following:
 
 ```
-$ mqttgw_sim/mqtt_gw_crypto_api.sh asymmetric-sign private_key_name hash_digest
-$ mqttgw_sim/mqtt_gw_crypto_api.sh asymmetric-verify private_key_name hash_digest signature
+mqttgw_sim/mqtt_gw_crypto_api.sh asymmetric-sign private_key_name hash_digest
+mqttgw_sim/mqtt_gw_crypto_api.sh asymmetric-verify private_key_name hash_digest signature
 ```
 
 The certificates identified by `private_key_name` must exist on the device. `Hash-digest` is a string that has been 
@@ -124,7 +124,7 @@ hash_digest=$(echo $hash_digest |base64)
 To test out the ecdh key agreement, do the following:
 
 ```
-$ mqttgw_sim/mqtt_gw_crypto_api.sh ecdh-key-agreement private_key_name peer_public_key
+mqttgw_sim/mqtt_gw_crypto_api.sh ecdh-key-agreement private_key_name peer_public_key
 ```
 
 The certificates identified by `private_key_name` must exist on the device. Parameter `peer_public_key` is a public key
@@ -133,7 +133,7 @@ that has been base64-encoded.
 To test out the random byte array generation, do the following:
 
 ```
-$ mqttgw_sim/mqtt_gw_crypto_api.sh ecdh-key-agreement generate-random size_of_array
+mqttgw_sim/mqtt_gw_crypto_api.sh ecdh-key-agreement generate-random size_of_array
 ```
 
 ### Device certificate renewal
@@ -144,7 +144,7 @@ The MQTT protocol translator example demonstrates device certificate renewal or 
 The device initiated certificate renewal or enrollment is performed using the `mqttgw_sim/mqtt_gw_crypto_api.sh` script:
 
 ```
-$ mqttgw_sim/mqtt_gw_crypto_api.sh device-cert-renew device_name certificate_name csr
+mqttgw_sim/mqtt_gw_crypto_api.sh device-cert-renew device_name certificate_name csr
 ```
 
 where `device_name` is the device that is performing the enrollment, `certificate_name` is the certificate to enroll and `csr` is the certificate signing request in DER format and base64 encoded.
@@ -158,13 +158,13 @@ The renewal or enrollment operation can also be requested from the cloud, for th
 A test certificate signing request (CSR) can be generated with openssl:
 
 ```
-$ openssl ecparam -name prime256v1 -genkey -noout -out private.key     # Create private key
-$ openssl req -new -nodes -out csr.req -key private.key -subj "/CN=CUSTOM_CERT_TEST/O=TEST/L=Test/ST=Test/C=EN/OU=ARM" -sha256 -outform DER     # Create CSR
-$ base64 -w 0 csr.req > csr_b64.txt    # Base64 encode the CSR
+openssl ecparam -name prime256v1 -genkey -noout -out private.key     # Create private key
+openssl req -new -nodes -out csr.req -key private.key -subj "/CN=CUSTOM_CERT_TEST/O=TEST/L=Test/ST=Test/C=EN/OU=ARM" -sha256 -outform DER     # Create CSR
+base64 -w 0 csr.req > csr_b64.txt    # Base64 encode the CSR
 ```
 
 The generated CSR can then be used when performing the enrollment for example like this:
 
 ```
-$ mqttgw_sim/mqtt_gw_crypto_api.sh device-cert-renew device_name certificate_name $(cat csr_b64.txt)
+mqttgw_sim/mqtt_gw_crypto_api.sh device-cert-renew device_name certificate_name $(cat csr_b64.txt)
 ```

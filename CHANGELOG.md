@@ -1,5 +1,11 @@
 # Changelog for Edge examples
 
+## Release 0.21.0
+
+* Update mbed-edge submodule to 0.21.0.
+* Ubuntu references updated to 22.04 and 20.04 (18.04 dropped).
+* Typo fixes.
+
 ## Release 0.20.0
 
 * Update mbed-edge submodule to 0.20.0.
