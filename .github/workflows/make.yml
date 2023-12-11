@@ -1,0 +1,30 @@
+name: mbed-edge-examples-make
+
+on:
+  workflow_dispatch:
+  push:
+    paths-ignore:
+      - '**/README.md'
+
+# This allows a subsequently queued workflow run to interrupt previous runs
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true  
+
+jobs:
+  make-examples:
+    runs-on: ubuntu-22.04
+    env:
+      ACCESS_TOKEN: ${{ secrets.ACCESS_TOKEN }}
+    steps:
+    - name: Checkout continuous-integration
+      uses: actions/checkout@v4
+    - name: Install dependencies
+      run: |
+        sudo apt install build-essential git libc6-dev
+        sudo apt install libmosquitto-dev mosquitto-clients
+        sudo apt install libglib2.0-dev
+    - name: git submodule update
+      run: git submodule update --init --recursive
+    # This builds release, debug and sanitize versions.
+    - run: make all
