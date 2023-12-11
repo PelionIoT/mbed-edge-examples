@@ -24,7 +24,27 @@ jobs:
         sudo apt install build-essential git libc6-dev
         sudo apt install libmosquitto-dev mosquitto-clients
         sudo apt install libglib2.0-dev
+        sudo apt install doxygen
     - name: git submodule update
       run: git submodule update --init --recursive
     # This builds release, debug and sanitize versions.
     - run: make all
+
+  docker-build:
+    runs-on: ubuntu-22.04
+    env:
+      ACCESS_TOKEN: ${{ secrets.ACCESS_TOKEN }}
+    steps:
+      - name: Checkout continuous-integration
+        uses: actions/checkout@v4
+      - name: git submodule update
+        run: git submodule update --init --recursive
+      - name: Docker build
+        run: docker build -t pt-example:latest -f ./Dockerfile.pt-example .
+      - name: Docker run
+        run: docker run -v /tmp:/tmp pt-example:latest
+
+
+  
+  
+    
