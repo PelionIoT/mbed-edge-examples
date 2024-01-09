@@ -11,6 +11,10 @@ The example translates MQTT endpoints connected to Device Management via Edge Co
 The mqttpt-example has a dependency to `jansson`-library. In the example build the
 `jansson`-library built by the `mbed-edge`-submodule is used.
 
+This example also requires Eclipse's mosquitto. 
+Mosquitto might not be available directly in your distribution (for example Ubuntu 22.04),
+see https://mosquitto.org/download/ for more installation information.
+
 ### Compilation
 
 Read the README.md in the root for the basic build instructions.

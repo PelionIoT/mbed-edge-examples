@@ -4,9 +4,12 @@ This is an MQTT gateway simulator to test the `mqttpt-example` protocol translat
 
 ### Requirements
 Requires `mosquitto_pub` client for publishing the MQTT messages to MQTT broker.
-```
+```bash
 sudo apt install mosquitto-clients
 ```
+
+NOTE! Mosquitto might not be available directly in your distribution (for example Ubuntu 22.04),
+see https://mosquitto.org/download/ for more installation information.
 
 ### Usage
 1. Run `edge-core` and `mqttpt-example`
