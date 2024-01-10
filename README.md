@@ -49,7 +49,7 @@ This example tests the robustness and thread safeness of Protocol API C-API inte
 
     ```
     sudo apt-get update
-    sudo apt-get install build-essential git libc6-dev \
+    sudo apt-get install build-essential cmake git libc6-dev \
        libmosquitto-dev mosquitto-clients libglib2.0-dev \
        doxygen
     ```
