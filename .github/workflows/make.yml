@@ -13,25 +13,26 @@ concurrency:
 
 jobs:
   make-examples:
-    runs-on: ubuntu-22.04
+    runs-on: edge-example-ci
     env:
       ACCESS_TOKEN: ${{ secrets.ACCESS_TOKEN }}
     steps:
     - name: Checkout continuous-integration
       uses: actions/checkout@v4
-    - name: Install dependencies
-      run: |
-        sudo apt install build-essential git libc6-dev
-        sudo apt install libmosquitto-dev mosquitto-clients
-        sudo apt install libglib2.0-dev
-        sudo apt install doxygen
+      # Self hosted has dependencies in place already
+      # - name: Install dependencies
+      # run: |
+        # sudo apt install build-essential git libc6-dev
+        # sudo apt install libmosquitto-dev mosquitto-clients
+        # sudo apt install libglib2.0-dev
+        # sudo apt install doxygen
     - name: git submodule update
       run: git submodule update --init --recursive
     # This builds release, debug and sanitize versions.
     - run: make all
 
   docker-build:
-    runs-on: ubuntu-22.04
+    runs-on: edge-example-ci
     env:
       ACCESS_TOKEN: ${{ secrets.ACCESS_TOKEN }}
     steps:
