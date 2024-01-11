@@ -8,13 +8,26 @@ concurrency:
 
 jobs:
   static-checks:
-    runs-on: ubuntu-latest
+    runs-on: edge-example-ci
     steps:
       - name: Check out code
         uses: actions/checkout@v4
-      - name: Run misspell (findings may not increase)
+      - name: Install Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: '1.20'
+      - name: Install & run misspell
         if: always()
         run: |
-            curl -L -o ./install-misspell.sh https://git.io/misspell
-            sh ./install-misspell.sh
-            bin/misspell -i mosquitto .
+            # The original misspell is not maintained anymore, use the one
+            # from golangci instead
+            go install github.com/golangci/misspell/cmd/misspell@latest
+            # As we run it locally - the repo is already there, including
+            # the lib folder which has a lot of misspellings.
+            # We need to specify the folders/files to check.
+            misspell -error -i mosquitto .github blept-example byte-order \
+                     c-api-stress-tester cmake config device-interface examples-common \
+                     examples-common-2 include mqttpt-example pt-example \
+                     simple-js-examples/*.js simple-js-examples/*.md \
+                     CHANGELOG.md CMakeLists.txt CONTRIBUTING.md Do* Makefile README.md
+
