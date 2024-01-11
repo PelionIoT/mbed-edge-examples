@@ -1,0 +1,24 @@
+{
+  "api_gw"                       : "https://api.us-east-1.mbedcloud.com",
+  "api_key"                      : "",
+  "account_id"                   : "0158778f9f1002420a014c1100000000",
+  "edge_k8s_url"                 : "https://edge-k8s.us-east-1.mbedcloud.com",
+  "edge_build_type"              : "edge-core",
+  "internal_id"                  : "",
+  "pcr_repo_path"                : "containers.us-east-1.mbedcloud.com",
+  "connection_type"              : "local",
+  "pt_example_skip_autostart"    : false,
+  "pt_example_options"           : "-n pt-example-edge-ci",
+  "edge_local_host_port"         : "8080",
+  "callback_handler"              : "https://callback-prod.kiiskila.cc",
+  "has_remote_terminal"          : true,
+  "rest_user_agent"              : "edge-examples-ci",
+  "endpoint_count"               : "3",
+  "edge_skip_release"            : true,
+  "test_edge_billing"            : true,
+    "dockerhub_auth"             : {
+      "username" : "pelionservices",
+      "email"    : "DMdevopsandsre@izumanetworks.com",
+      "password" : ""
+    }
+}
