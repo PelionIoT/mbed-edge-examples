@@ -12,6 +12,7 @@ RUN apt-get update && \
 
 COPY . .
 
+RUN rm -rf build build-debug
 RUN make build-pt-example-debug
 
 CMD [ "./build-debug/bin/pt-example", "-n", "docker-pt-example" ]
