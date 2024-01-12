@@ -53,7 +53,7 @@ jobs:
     - name: Start edge-core
       run: |
           cd lib/mbed-edge/build
-          bin/edge-core >${{ env.EDGE_LOG }} &
+          bin/edge-core >../../../${{ env.EDGE_LOG }} &
           # Wait a bit for it to connect..
           sleep 5
     - name: Check out ${{ env.SYSTEM_TESTS }} repository
@@ -70,13 +70,13 @@ jobs:
           path: ${{ env.SCRIPTS_INTERNAL }}
     - name: Create pytest config
       run: |
-        cp .github/workflows/prod-edge-core-config.json ${{ env.SYSTEM_TESTS }}/edge-core-config.json
-        CONFIG_FILE=${{ env.SYSTEM_TESTS }}/edge-core-config.json
-        jq '.api_key = "${{ secrets.EDGE_EXAMPLES_API_KEY }}"' "$CONFIG_FILE"  > tmp.json && mv tmp.json "$CONFIG_FILE"
+        CONFIG_FILE=${{ env.SYSTEM_TESTS }}/prod-edge-core-config.json
+        cp .github/workflows/prod-edge-core-config.json "$CONFIG_FILE"
+        jq '.api_key = "${{ env.API_KEY }}"' "$CONFIG_FILE"  > tmp.json && mv tmp.json "$CONFIG_FILE"
     - name: Start pt-example
       run: |
         cd build-debug
-        ./bin/pt-example -n pt-example >${{ env.PT_LOG }} &
+        ./bin/pt-example -n pt-example >../../${{ env.PT_LOG }} &
         sleep 5
     - name: Install Python
       uses: actions/setup-python@v4
@@ -94,10 +94,10 @@ jobs:
           pip install -U -r requirements.txt
           pip install packages/*.whl
           pip install -e systemtest-library
-          pytest -v --config_path=edge-core-config.json --html=$RESULT_HTML \
+          pytest -v --config_path=prod-edge-core-config.json --html=../${{ env.RESULT_HTML }} \
           --self-contained-html -log_cli=true --log-cli-level=DEBUG \
-          --log-file=$RESULT_LOG_FILE --log-file-level=DEBUG \
-          --junitxml=$RESULT_XML test_cases/edge/test_pt_example.py
+          --log-file=../${{ env.RESULT_LOG_FILE }} --log-file-level=DEBUG \
+          --junitxml=../${{ env.RESULT_XML }} test_cases/edge/test_pt_example.py
           deactivate
     - name: Cleanup - delete device from Izuma DM
       if: always()
@@ -107,8 +107,13 @@ jobs:
           echo "Delete $devid via Izuma V3 REST API"
           scripts-internal/cloud/delete-device.sh $devid ${{ secrets.EDGE_EXAMPLES_API_KEY }}
         fi
-        # Delete the old identity/MCC contents to change identity in the next run
-        rm -rf lib/mbed-edge/build/mcc_config
+    - name: Cleanup - remove mcc_config -folder.
+      if: always()
+      run: |
+         # Delete the old identity/MCC contents to change identity in the next run
+         ls -al
+         rm -rf lib/mbed-edge/build/mcc_config
+         rm -rf mbed-edge-examples/lib/mbed-edge/build/mcc_config
     - name: Cleanup - kill edge-core process
       if: always()
       run: |
@@ -157,3 +162,6 @@ jobs:
       - name: Docker build
         run: docker build -t pt-example:latest -f ./Dockerfile.pt-example .
         # Don't run it - it will run forever essentially.
+      - name: Docker system prune
+        if: always()
+        run: docker system prune -f
