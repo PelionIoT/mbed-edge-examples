@@ -2,8 +2,9 @@
 
 ## Release 0.21.1
 
-* Update mbed-edge submodule to 0.21.1.
-* Dockerfile.pt-example takes into account now the case where build or build-debug exists in work area.
+* Update `mbed-edge` submodule to 0.21.1.
+* `Dockerfile.pt-example` takes into account now the case where build or build-debug exists in work area.
+* `Dockerfile.simpe-pt-example` base image upgraded to `node:alpine3.18.`
 
 ## Release 0.21.0
 
