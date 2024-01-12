@@ -159,8 +159,11 @@ jobs:
         uses: actions/checkout@v4
       - name: git submodule update
         run: git submodule update --init --recursive
-      - name: Docker build
+      - name: Docker build pt-example
         run: docker build -t pt-example:latest -f ./Dockerfile.pt-example .
+        # Don't run it - it will run forever essentially.
+      - name: Docker build pt-example
+        run: docker build -t simple-example:latest -f ./Dockerfile.simple-pt-example .
         # Don't run it - it will run forever essentially.
       - name: Docker system prune
         if: always()
