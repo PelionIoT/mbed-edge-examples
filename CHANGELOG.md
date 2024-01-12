@@ -1,5 +1,10 @@
 # Changelog for Edge examples
 
+## Release 0.21.1
+
+* Update mbed-edge submodule to 0.21.1.
+* Dockerfile.pt-example takes into account now the case where build or build-debug exists in work area.
+
 ## Release 0.21.0
 
 * Update mbed-edge submodule to 0.21.0.
