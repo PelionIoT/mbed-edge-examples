@@ -8,7 +8,7 @@ concurrency:
 
 jobs:
   static-checks:
-    runs-on: edge-example-ci
+    runs-on: client
     steps:
       - name: Check out code
         uses: actions/checkout@v4

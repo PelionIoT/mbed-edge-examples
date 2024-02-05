@@ -13,7 +13,7 @@ concurrency:
 
 jobs:
   make-examples-and-test:
-    runs-on: edge-example-ci
+    runs-on: client
     env:
       ACCESS_TOKEN: ${{ secrets.ACCESS_TOKEN }}
       API_KEY: ${{ secrets.EDGE_EXAMPLES_API_KEY }}
@@ -151,7 +151,7 @@ jobs:
         check_name: mbed-edge-examples-result
         
   docker-build:
-    runs-on: edge-example-ci
+    runs-on: client
     env:
       ACCESS_TOKEN: ${{ secrets.ACCESS_TOKEN }}
     steps:
