@@ -114,6 +114,8 @@ jobs:
          ls -al
          rm -rf lib/mbed-edge/build/mcc_config
          rm -rf mbed-edge-examples/lib/mbed-edge/build/mcc_config
+         rm -rf lib/mbed-edge/config/mbed_cloud_dev_credentials.c
+         rm -rf pelion-system-tests/prod-edge-core-config.json
     - name: Cleanup - kill edge-core process
       if: always()
       run: |
