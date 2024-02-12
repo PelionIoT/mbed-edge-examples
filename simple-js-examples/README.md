@@ -109,7 +109,7 @@ Fixed values for the example:
    from [Device Management Portal](https://portal.mbedcloud.com)
 1. Run this example and connect to Edge.
    ```bash
-   nodejs simple-pt-example.js
+   node simple-pt-example.js
    ```
    Or, using docker
    ```

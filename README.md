@@ -12,6 +12,8 @@ Pt-example is a basic example of the C-API and pt-client usage.
 without real MQTT hardware using provided Mosquitto MQTT simulator scripts. The endpoints may
 publish for example temperature and humidity values to Device Management.
 
+NOTE! This requires Eclipse's Mosquitto - see installation info: https://mosquitto.org/download/
+
 ## blept-example
 
 The `blept-example` is a protocol translator reference implementation for use with Bluetooth Low Energy (BLE) devices that implement a Bluetooth Low Energy Generic Attributes (GATT) server. It connects to BLE devices and translates their GATT services and characteristics into Open Mobile Alliance (OMA) Lightweight Machine to Machine (LwM2M) Objects and Resources.
@@ -46,10 +48,13 @@ This example tests the robustness and thread safeness of Protocol API C-API inte
     Install these (using `sudo` typically):
 
     ```
-    apt install build-essential git libc6-dev
-    apt install libmosquitto-dev mosquitto-clients
-    apt install libglib2.0-dev
+    sudo apt-get update
+    sudo apt-get install build-essential cmake git libc6-dev \
+       libmosquitto-dev mosquitto-clients libglib2.0-dev \
+       doxygen
     ```
+    NOTE! Mosquitto might not be available directly in your distribution (for example Ubuntu 22.04),
+    see https://mosquitto.org/download/ for more installation information.
 
 1. Preparing all the sources
 
