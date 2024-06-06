@@ -5,6 +5,9 @@ on:
   push:
     paths-ignore:
       - '**/README.md'
+  schedule:
+    # Once week 04:14 on Saturday
+    - cron: '14 4 * * Sat'
 
 # This allows a subsequently queued workflow run to interrupt previous runs
 concurrency:
@@ -25,6 +28,7 @@ jobs:
       RESULT_LOG_FILE: result_pytest.log
       RESULT_HTML: result.html
       RESULT_XML: result.xml
+      SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
     steps:
     - name: Checkout continuous-integration
       uses: actions/checkout@v4
@@ -151,11 +155,18 @@ jobs:
         action_fail: true
         action_fail_on_inconclusive: true
         check_name: mbed-edge-examples-result
+    - name: Post status to Slack testing_builds
+      if: always()
+      uses: act10ns/slack@v2
+      with:
+        status: ${{ job.status }}
+        channel: '#testing_builds'
         
   docker-build:
     runs-on: client
     env:
       ACCESS_TOKEN: ${{ secrets.ACCESS_TOKEN }}
+      SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
     steps:
       - name: Checkout continuous-integration
         uses: actions/checkout@v4
@@ -170,3 +181,9 @@ jobs:
       - name: Docker system prune
         if: always()
         run: docker system prune -f
+      - name: Post status to Slack testing_builds
+        if: always()
+        uses: act10ns/slack@v2
+        with:
+          status: ${{ job.status }}
+          channel: '#testing_builds'
