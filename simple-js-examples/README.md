@@ -1,7 +1,32 @@
 # Simple Javascript protocol translator and management example
 
-Please note that these example require a working Node.JS environment in your system.
+## Dependencies / pre-requisites
+
+This example uses `node.js v8` or higher.
 LmP Edge devices do not by default have it.
+
+Install the dependencies:
+```bash
+npm install
+```
+
+Dependencies are:
+
+    simple-edge-api-examples
+    ├── es6-promisify@6.0.0
+    ├─┬ json-rpc-ws@5.0.0
+    │ ├─┬ debug@3.1.0
+    │ │ └── ms@2.0.0
+    │ ├── uuid@3.2.1
+    │ └─┬ ws@4.1.0
+    │   ├── async-limiter@1.0.0
+    │   └── safe-buffer@5.1.2
+    └── repl.history@0.1.4
+
+The list with version can be listed with:
+```bash
+npm ls
+```
 
 ## simple-fota-example.js
 These example protocol translators (PT) demostrate the FOTA capabilities. The PT needs to register these resources:
@@ -77,33 +102,6 @@ Libraries are used to handle the websocket and JSONRPC 2.0 communication.
 Please study the example code to see how to use the gateway resource manager
 JSONRPC 2.0 API and read the relevant documentation for Edge APIs from
 [Device Management Docs](https://developer.izumanetworks.com/docs/device-management-edge/latest/protocol-translator/index.html).
-
-## Dependencies
-
-This example uses `node.js v8` or higher.
-
-Install the dependencies:
-```bash
-npm install
-```
-
-Dependencies are:
-
-    simple-edge-api-examples
-    ├── es6-promisify@6.0.0
-    ├─┬ json-rpc-ws@5.0.0
-    │ ├─┬ debug@3.1.0
-    │ │ └── ms@2.0.0
-    │ ├── uuid@3.2.1
-    │ └─┬ ws@4.1.0
-    │   ├── async-limiter@1.0.0
-    │   └── safe-buffer@5.1.2
-    └── repl.history@0.1.4
-
-The list with version can be listed with:
-```bash
-npm ls
-```
 
 ## Running the protocol translator example
 
