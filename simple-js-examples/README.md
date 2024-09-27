@@ -1,9 +1,12 @@
 # Simple Javascript protocol translator and management example
 
-## simple-fota-example.js
-These example protocol translators demostrate the fota capabilities. The PT needs to register these resources:
+Please note that these example require a working Node.JS environment in your system.
+LmP Edge devices do not by default have it.
 
-| Resource                   | Object id | Instance id | Resource id |
+## simple-fota-example.js
+These example protocol translators (PT) demostrate the FOTA capabilities. The PT needs to register these resources:
+
+| Resource                   | Object id  | Instance id | Resource id |
 |----------------------------|------------|-------------|-------------|
 | Component Identity         | 14         | 0           | 0        |
 | Component Version          | 14         | 0           | 2        |
@@ -16,7 +19,16 @@ These example protocol translators demostrate the fota capabilities. The PT need
 | Vendor UUID                | 10255      | 0           | 3        |
 | Class UUID                 | 10255      | 0           | 4        |
 
-The edge-core uses these resources to receive the manifest, send the status as well as the result back to the cloud. The PT needs to implement the function that receives the vendorid, classid, version and firmware size using `manifest_meta_data` api. The PT then needs to verifies the vendor and class id. Upon successful verification, the PT needs to send the download request to the edge-core using `download_asset` api. If the edge-core successfully downloaded the firmware, the PT receives the path of the downloaded binary, otherwise it gets the error. The PT then needs to deregister the device and starts the firmware update process. The PT then registers the device with the new firmware version(14/0/2) that it received from the `manifest_meta_data` api.
+The edge-core uses these resources to receive the manifest, send the status as well as the result back to the cloud. The PT needs to implement the function that receives the vendorid, classid, version and firmware size using `manifest_meta_data` API. The PT then needs to verifies the vendor and class ID. Upon successful verification, the PT needs to send the download request to the edge-core using `download_asset` api. If the edge-core successfully downloaded the firmware, the PT receives the path of the downloaded binary, otherwise it gets the error code. The PT then needs to deregister the device and start the firmware update process. The PT then re-registers the device with the new firmware version (14/0/2) that it received from the `manifest_meta_data` API.
+
+Please note that the manifest file you use must have matching vendor and class ID.
+
+```
+vendor:
+    vendor-id: 5355424445564943452d56454e444f52
+device:
+    class-id: 5355424445564943452d2d434c415353
+```
 
 ## simple-pt-example.js and pt-crypto-api-example.js
 
@@ -54,7 +66,7 @@ API and read the relevant documentation for Edge APIs from
 
 ## simple-grm-example.js
 
-These example gateway resource managers demonstrate the calls and parameters to pass to
+This example gateway resource manager demonstrates the calls and parameters to pass to
 Edge Core gateway resource management API. The `simple-grm-example.js` demonstrates the
 basic resource manager functionality, ie. registering, adding resources and
 updation. The websocket connection and JSONRPC 2.0 specification and communication
@@ -113,6 +125,7 @@ Fixed values for the example:
    ```
    Or, using docker
    ```
+   docker build
    docker run -v /tmp:/tmp -it simple-pt-example:latest
    ```
 1. Monitor the registered Edge and endpoint device from Device Management Portal.
