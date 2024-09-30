@@ -415,7 +415,7 @@ EdgePTExample.prototype.exposeVendorandClass = function () {
 			},  null);
 			return;
 		}
-		console.log(GREEN, "received fota request")
+		console.log(GREEN, "Received FOTA request")
 		console.log(params)
 		var fw_size = params.size
 		var classid = new Buffer.from(params.classid, "base64");
@@ -428,6 +428,9 @@ EdgePTExample.prototype.exposeVendorandClass = function () {
 			deviceId: deviceid,
 			size: fw_size
 		}
+		console.log(GREEN, "Class ID  : ", classid.toString("ascii"))
+		console.log(GREEN, "Vendor ID : ", vendorid.toString("ascii"))
+		console.log(GREEN, "FW version: ", fw_version)
 		// checking vendor and class id from manifest is equal or not.
 		if((Buffer.compare(vendorid, VENDORID)!= 0) && (Buffer.compare(classid, CLASSID)!= 0)) {
 			response({
@@ -435,6 +438,7 @@ EdgePTExample.prototype.exposeVendorandClass = function () {
 				"data": "wrong vendor or class ID",
 				"message": "wrong vendor or class ID"
 			}, /* success */ null);
+			console.log(RED, "Wrong vendor or class ID")
 		}
 		else {
 			response( null,'ok');
@@ -511,6 +515,7 @@ const holdProgress = async (message) => {
 		await holdProgress("Press any key to register the example device.");
 		response = await edge.registerExampleDevice(DEVICE_ID,"0.0.0");
 		console.log(GREEN, "Registered an example device. Response:", response);
+		console.log(GREEN, "Subdevice FOTA can be started.")
 
 		await holdProgress("Press any key to update example device values.");
 		response = await edge.updateExampleDeviceResources(DEVICE_ID);
