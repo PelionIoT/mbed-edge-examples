@@ -44,9 +44,9 @@ These example protocol translators (PT) demostrate the FOTA capabilities. The PT
 | Vendor UUID                | 10255      | 0           | 3        |
 | Class UUID                 | 10255      | 0           | 4        |
 
-The edge-core uses these resources to receive the manifest, send the status as well as the result back to the cloud. The PT needs to implement the function that receives the vendorid, classid, version and firmware size using `manifest_meta_data` API. The PT then needs to verifies the vendor and class ID. Upon successful verification, the PT needs to send the download request to the edge-core using `download_asset` api. If the edge-core successfully downloaded the firmware, the PT receives the path of the downloaded binary, otherwise it gets the error code. The PT then needs to deregister the device and start the firmware update process. The PT then re-registers the device with the new firmware version (14/0/2) that it received from the `manifest_meta_data` API.
+The edge-core uses these resources to receive the manifest, send the status as well as the result back to the cloud. The PT needs to implement the function that receives the vendor ID, class ID, version and firmware size using `manifest_meta_data` API. The PT then needs to verify the vendor ID and class ID. Upon successful verification, the PT needs to send the download request to the edge-core using `download_asset` API. If the edge-core successfully downloaded the firmware, the PT receives the path of the downloaded binary, otherwise, it gets the error code. The PT then needs to deregister the device and start the firmware update process. The PT then re-registers the device with the new firmware version (14/0/2) that is received from the `manifest_meta_data` API.
 
-Please note that the manifest file you use must have matching vendor and class ID.
+Please note that the manifest file you use must have matching vendor ID and class ID.
 
 ```
 vendor:
