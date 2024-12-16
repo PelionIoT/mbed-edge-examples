@@ -1,5 +1,7 @@
 name: misspell
-on: push
+on: 
+  push:
+  workflow_dispatch:
 
 # This allows a subsequently queued workflow run to interrupt previous runs
 concurrency:
@@ -12,22 +14,12 @@ jobs:
     steps:
       - name: Check out code
         uses: actions/checkout@v4
-      - name: Install Go
-        uses: actions/setup-go@v5
+      - name: Misspell
+        uses: PelionIoT/actions/.github/actions/misspell@main
         with:
-          go-version: '1.21'
-      - name: Install & run misspell
-        if: always()
-        run: |
-            # The original misspell is not maintained anymore, use the one
-            # from golangci instead
-            go install github.com/golangci/misspell/cmd/misspell@latest
-            # As we run it locally - the repo is already there, including
-            # the lib folder which has a lot of misspellings.
-            # We need to specify the folders/files to check.
-            misspell -error -i mosquitto .github blept-example byte-order \
+          exceptions: "mosquitto"
+          path: ".github blept-example byte-order \
                      c-api-stress-tester cmake config device-interface examples-common \
                      examples-common-2 include mqttpt-example pt-example \
                      simple-js-examples/*.js simple-js-examples/*.md \
-                     CHANGELOG.md CMakeLists.txt CONTRIBUTING.md Do* Makefile README.md
-
+                     CHANGELOG.md CMakeLists.txt CONTRIBUTING.md Do* Makefile README.md"
