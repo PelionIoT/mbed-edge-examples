@@ -1,0 +1,36 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: web-portal-${NODE_NAME}
+spec:
+  automountServiceAccountToken: false
+  hostname: web-portal
+  nodeName: ${NODE_NAME}
+  containers:
+  - name: web-portal
+    image: web-portal:latest
+    imagePullPolicy: Never  # For local development
+    ports:
+    - containerPort: 80
+    env:
+    - name: REACT_APP_API_URL
+      value: "http://dummy-device-app:3000"
+    resources:
+      requests:
+        memory: "64Mi"
+        cpu: "50m"
+      limits:
+        memory: "128Mi"
+        cpu: "100m"
+    livenessProbe:
+      httpGet:
+        path: /health
+        port: 80
+      initialDelaySeconds: 30
+      periodSeconds: 10
+    readinessProbe:
+      httpGet:
+        path: /health
+        port: 80
+      initialDelaySeconds: 5
+      periodSeconds: 5 
