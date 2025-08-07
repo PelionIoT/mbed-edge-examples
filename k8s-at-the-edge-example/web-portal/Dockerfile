@@ -30,4 +30,4 @@ COPY nginx.conf /etc/nginx/conf.d/default.conf
 EXPOSE 80
 
 # Start nginx
-CMD ["/bin/sh", "-c", "until getent hosts dummy-device-app && nslookup dummy-device-app && cat /etc/resolv.conf; do echo 'Waiting for DNS...'; sleep 2; done; nginx -g 'daemon off;'"] 
+CMD /bin/sh -c "nginx -g 'daemon off;'"
