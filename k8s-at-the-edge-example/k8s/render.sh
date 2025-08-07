@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Array of node names
-NODE_NAMES=("0197b36304082e89295467ae00000000" "0195936439b66240d0040fa600000000")
+NODE_NAMES=("0198832759f82e89295467ae00000000")
 
 # Create rendered directory if it doesn't exist
 mkdir -p rendered

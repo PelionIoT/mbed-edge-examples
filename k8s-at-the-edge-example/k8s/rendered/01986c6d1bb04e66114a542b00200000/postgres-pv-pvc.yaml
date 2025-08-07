@@ -1,9 +1,9 @@
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: postgres-pv-claim-${NODE_NAME}
+  name: postgres-pv-claim
   annotations:
-    volume.kubernetes.io/gateway: $NODE_NAME
+    volume.kubernetes.io/gateway: 01986c6d1bb04e66114a542b00200000
 spec:
   accessModes:
   - ReadWriteOnce

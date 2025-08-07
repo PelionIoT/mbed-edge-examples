@@ -8,8 +8,8 @@ spec:
   nodeName: ${NODE_NAME}
   containers:
   - name: web-portal
-    image: web-portal:latest
-    imagePullPolicy: Never  # For local development
+    image: ghcr.io/izumanetworks/kaas-example/web-portal:1.0.3
+    imagePullPolicy: IfNotPresent
     ports:
     - containerPort: 80
     env:

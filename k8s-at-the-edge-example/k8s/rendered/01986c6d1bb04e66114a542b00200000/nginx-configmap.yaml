@@ -1,7 +1,7 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: nginx-config-${NODE_NAME}
+  name: nginx-config
 data:
   nginx.conf: |
     server {

@@ -1,24 +1,20 @@
 apiVersion: v1
 kind: Pod
 metadata:
-  name: nginx-${NODE_NAME}
+  name: web-portal-01986c6d1bb04e66114a542b00200000
 spec:
   automountServiceAccountToken: false
-  hostname: nginx
-  nodeName: ${NODE_NAME}
-  volumes:
-  - name: nginx-config-${NODE_NAME}
-    configMap:
-      name: nginx-config-${NODE_NAME}
+  hostname: web-portal
+  nodeName: 01986c6d1bb04e66114a542b00200000
   containers:
-  - name: nginx
-    image: nginx:alpine
+  - name: web-portal
+    image: ghcr.io/izumanetworks/kaas-example/web-portal:1.0.0
+    imagePullPolicy: Always
     ports:
     - containerPort: 80
-    volumeMounts:
-    - name: nginx-config-${NODE_NAME}
-      mountPath: /etc/nginx/conf.d/default.conf
-      subPath: nginx.conf
+    env:
+    - name: REACT_APP_API_URL
+      value: "http://dummy-device-app:3000"
     resources:
       requests:
         memory: "64Mi"
@@ -37,4 +33,4 @@ spec:
         path: /health
         port: 80
       initialDelaySeconds: 5
-      periodSeconds: 5
+      periodSeconds: 5 
