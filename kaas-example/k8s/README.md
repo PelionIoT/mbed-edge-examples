@@ -4,7 +4,7 @@ This directory contains a script, `render.sh`, that automates the rendering of K
 
 ## What does `render.sh` do?
 
-- Iterates over a predefined list of Izuma's Device IDs.
+- Iterates over a list of Izuma's Device IDs.
 - For each node, it:
   - Creates a directory under `rendered/` specific to that node.
   - Processes all template files in the `templates/` directory (files ending with `.yml` or `.yaml`).
@@ -22,7 +22,7 @@ This directory contains a script, `render.sh`, that automates the rendering of K
 
 1. **Navigate to this directory:**
    ```sh
-   cd mbed-edge-examples/virtual-device-server/k8s
+   cd mbed-edge-examples/kaas-example/k8s
    ```
 2. **Ensure your templates are in the `templates/` directory.**
    - Template files should use the `.yml` or `.yaml` extension.
