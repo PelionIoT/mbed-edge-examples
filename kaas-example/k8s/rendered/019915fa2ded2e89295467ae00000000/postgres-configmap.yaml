@@ -1,9 +1,0 @@
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: postgres-config-019915fa2ded2e89295467ae00000000
-  namespace: default
-data:
-  POSTGRES_DB: device_db
-  POSTGRES_USER: postgres
-  POSTGRES_PASSWORD: password 

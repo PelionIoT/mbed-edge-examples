@@ -124,3 +124,4 @@ update_default_resources.c
 ### default repl history in js examples
 .repl_history
 
+*.rendered
