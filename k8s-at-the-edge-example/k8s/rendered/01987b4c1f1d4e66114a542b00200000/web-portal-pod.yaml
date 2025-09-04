@@ -1,0 +1,36 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: web-portal-01987b4c1f1d4e66114a542b00200000
+spec:
+  automountServiceAccountToken: false
+  hostname: web-portal
+  nodeName: 01987b4c1f1d4e66114a542b00200000
+  containers:
+  - name: web-portal
+    image: ghcr.io/izumanetworks/kaas-example/web-portal:1.0.1
+    imagePullPolicy: IfNotPresent
+    ports:
+    - containerPort: 80
+    env:
+    - name: REACT_APP_API_URL
+      value: "http://dummy-device-app:3000"
+    resources:
+      requests:
+        memory: "64Mi"
+        cpu: "50m"
+      limits:
+        memory: "128Mi"
+        cpu: "100m"
+    livenessProbe:
+      httpGet:
+        path: /health
+        port: 80
+      initialDelaySeconds: 30
+      periodSeconds: 10
+    readinessProbe:
+      httpGet:
+        path: /health
+        port: 80
+      initialDelaySeconds: 5
+      periodSeconds: 5 

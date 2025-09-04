@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: postgres-pv-claim-01987b4c1f1d4e66114a542b00200000
+  annotations:
+    volume.kubernetes.io/gateway: 01987b4c1f1d4e66114a542b00200000
+spec:
+  accessModes:
+  - ReadWriteOnce
+  storageClassName: edge-pv
+  resources:
+    requests:
+      storage: 1Gi

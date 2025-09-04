@@ -1,0 +1,43 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: postgres-0198832759f82e89295467ae00000000
+spec:
+  automountServiceAccountToken: false
+  hostname: postgres
+  nodeName: 0198832759f82e89295467ae00000000
+  containers:
+  - name: postgres
+    image: postgres:15-alpine
+    ports:
+    - containerPort: 5432
+    env:
+    - name: POSTGRES_DB
+      valueFrom:
+        configMapKeyRef:
+          name: postgres-config-0198832759f82e89295467ae00000000
+          key: POSTGRES_DB
+    - name: POSTGRES_USER
+      valueFrom:
+        configMapKeyRef:
+          name: postgres-config-0198832759f82e89295467ae00000000
+          key: POSTGRES_USER
+    - name: POSTGRES_PASSWORD
+      valueFrom:
+        configMapKeyRef:
+          name: postgres-config-0198832759f82e89295467ae00000000
+          key: POSTGRES_PASSWORD
+    volumeMounts:
+    - name: postgres-storage
+      mountPath: /var/lib/postgresql/data
+    resources:
+      requests:
+        memory: "256Mi"
+        cpu: "250m"
+      limits:
+        memory: "512Mi"
+        cpu: "500m"
+  volumes:
+  - name: postgres-storage
+    persistentVolumeClaim:
+      claimName: postgres-pv-claim-0198832759f82e89295467ae00000000
