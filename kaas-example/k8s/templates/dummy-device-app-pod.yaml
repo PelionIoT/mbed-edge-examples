@@ -12,6 +12,7 @@ spec:
     imagePullPolicy: IfNotPresent
     ports:
     - containerPort: 3000
+      hostPort: 3000
     env:
     - name: DATABASE_URL
       value: "postgres://postgres:password@postgres:5432/device_db"
