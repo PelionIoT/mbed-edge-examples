@@ -12,7 +12,7 @@ spec:
     imagePullPolicy: IfNotPresent
     ports:
     - containerPort: 80
-      hostPort: 80
+      hostPort: 8084
     env:
     - name: REACT_APP_API_URL
       value: "http://dummy-device-app:3000"
