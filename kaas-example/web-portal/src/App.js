@@ -7,7 +7,8 @@ import {
   Droplets, 
   Plus,
   RefreshCw,
-  Settings
+  Settings,
+  Trash2
 } from 'lucide-react';
 
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3000';
@@ -68,6 +69,34 @@ function App() {
     }
   };
 
+  const deleteDevice = async (deviceId) => {
+    try {
+      const response = await axios.delete(`${API_BASE_URL}/devices/${deviceId}`);
+      if (response.data.success) {
+        setDevices((prev) => prev.filter((device) => device.id !== deviceId));
+      }
+    } catch (err) {
+      setError('Failed to delete device');
+      console.error('Error deleting device:', err);
+    }
+  };
+
+  const confirmAndDelete = (deviceId) => {
+    if (window.confirm('Are you sure you want to delete this device?')) {
+      deleteDevice(deviceId);
+    }
+  };
+
+  const getRandomFloat = () => parseFloat((Math.random() * 100).toFixed(1));
+
+  const randomizeDeviceValue = (device) => {
+    if (device.device_type === 'TemperatureSensor') {
+      updateDeviceState(device.id, { temperature: getRandomFloat() });
+    } else if (device.device_type === 'HumiditySensor') {
+      updateDeviceState(device.id, { humidity: getRandomFloat() });
+    }
+  };
+
   const getDeviceIcon = (deviceType) => {
     switch (deviceType) {
       case 'LightBulb':
@@ -103,15 +132,37 @@ function App() {
       
       case 'TemperatureSensor':
         return (
-          <div className="text-2xl font-bold text-blue-600">
-            {device.state.temperature}°C
+          <div>
+            <div className="text-2xl font-bold text-blue-600">
+              {device.state.temperature}°C
+            </div>
+            <div className="mt-3">
+              <button
+                onClick={() => randomizeDeviceValue(device)}
+                className="inline-flex items-center px-3 py-1.5 text-sm bg-blue-50 text-blue-700 rounded-md hover:bg-blue-100 border border-blue-200"
+              >
+                <RefreshCw className="w-4 h-4 mr-1" />
+                Randomize
+              </button>
+            </div>
           </div>
         );
       
       case 'HumiditySensor':
         return (
-          <div className="text-2xl font-bold text-cyan-600">
-            {device.state.humidity}%
+          <div>
+            <div className="text-2xl font-bold text-cyan-600">
+              {device.state.humidity}%
+            </div>
+            <div className="mt-3">
+              <button
+                onClick={() => randomizeDeviceValue(device)}
+                className="inline-flex items-center px-3 py-1.5 text-sm bg-cyan-50 text-cyan-700 rounded-md hover:bg-cyan-100 border border-cyan-200"
+              >
+                <RefreshCw className="w-4 h-4 mr-1" />
+                Randomize
+              </button>
+            </div>
           </div>
         );
       
@@ -137,10 +188,10 @@ function App() {
         {/* Header */}
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-gray-900 mb-2">
-            Device Management Portal
+            Local Device Management Portal
           </h1>
           <p className="text-gray-600">
-            Manage your virtual IoT devices
+            Manage your virtual Gas Station devices
           </p>
         </div>
 
@@ -240,6 +291,16 @@ function App() {
                     </p>
                   </div>
                 </div>
+                <div>
+                  <button
+                    onClick={() => confirmAndDelete(device.id)}
+                    className="inline-flex items-center px-3 py-1.5 text-sm bg-red-50 text-red-600 rounded-md hover:bg-red-100 border border-red-200"
+                    title="Delete device"
+                  >
+                    <Trash2 className="w-4 h-4 mr-1" />
+                    Delete
+                  </button>
+                </div>
               </div>
               
               <div className="mb-4">
@@ -247,7 +308,7 @@ function App() {
               </div>
               
               <div className="text-xs text-gray-400">
-                Last updated: {new Date(device.updated_at).toLocaleString()}
+                Last updated: {device.updated_at ? new Date(device.updated_at * 1000).toLocaleString() : 'Unknown'}
               </div>
             </div>
           ))}
