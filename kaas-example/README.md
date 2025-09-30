@@ -21,10 +21,6 @@ This example deploys a virtual IoT device management system as managed K8s conta
 
 ## Deployment
 
-<<<<<<< Updated upstream:kaas-example/README.md
-**Deploy via KaaS:**
-```sh
-=======
 1. **Build Docker images:** Clone the repository on the device and run the following commands
 ```bash
 # Build Rust application
@@ -38,7 +34,6 @@ docker build -t web-portal:latest .
 
 2. **Deploy to Kubernetes:**
 ```bash
->>>>>>> Stashed changes:k8s-at-the-edge-example/README.md
 cd k8s
 
 # Render K8s definitions for your node
