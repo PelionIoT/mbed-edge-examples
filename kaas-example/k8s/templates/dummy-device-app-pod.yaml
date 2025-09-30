@@ -8,7 +8,7 @@ spec:
   nodeName: ${NODE_NAME}
   containers:
   - name: dummy-device-app
-    image: ghcr.io/izumanetworks/kaas-example/dummy-device-app:1.0.1
+    image: ghcr.io/izumanetworks/kaas-example/dummy-device-app:1.0.2
     imagePullPolicy: IfNotPresent
     ports:
     - containerPort: 3000
