@@ -21,8 +21,19 @@ This example deploys a virtual IoT device management system as managed K8s conta
 
 ## Deployment
 
-**Deploy via KaaS:**
-```sh
+1. **Build Docker images:** Clone the repository on the device and run the following commands
+```bash
+# Build Rust application
+cd dummy-device-app
+docker build -t k8s-at-the-edge-example-dummy-device-app:latest .
+
+# Build React application
+cd ../web-portal
+docker build -t web-portal:latest .
+```
+
+2. **Deploy to Kubernetes:**
+```bash
 cd k8s
 
 # Render K8s definitions for your node
@@ -70,3 +81,15 @@ docker compose up -d
 
 3. Pull up the web-portal on local machine at http://localhost:3000
 ![web-portal](assets/device-mgmt-portal.png)
+
+3. **Deploy via docker compose**
+
+```sh
+docker compose up -d
+```
+
+If local port forwarding then run on your local machine
+
+```sh
+ssh -L 8085:localhost:8085 -L 3000:localhost:3000 <remote-host>
+```

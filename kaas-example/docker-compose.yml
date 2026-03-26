@@ -16,6 +16,11 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+        max-file: "2"
 
   dummy-device-app:
     build:
@@ -23,13 +28,21 @@ services:
       dockerfile: Dockerfile
     environment:
       DATABASE_URL: postgres://postgres:password@postgres:5432/device_db
+      RUST_LOG: debug
       PORT: 3000
+    volumes:
+      - /tmp:/tmp
     ports:
       - "3000:3000"
     depends_on:
       postgres:
         condition: service_healthy
     restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+        max-file: "2"
 
   web-portal:
     build:
@@ -38,10 +51,15 @@ services:
     environment:
       REACT_APP_API_URL: http://localhost:3000
     ports:
-      - "8080:80"
+      - "8085:80"
     depends_on:
       - dummy-device-app
     restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+        max-file: "2"
 
   nginx:
     image: nginx:alpine
@@ -53,6 +71,11 @@ services:
       - web-portal
       - dummy-device-app
     restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+        max-file: "2"
 
 volumes:
   postgres_data: 

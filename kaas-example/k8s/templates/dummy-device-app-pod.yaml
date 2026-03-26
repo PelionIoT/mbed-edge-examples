@@ -8,10 +8,11 @@ spec:
   nodeName: ${NODE_NAME}
   containers:
   - name: dummy-device-app
-    image: ghcr.io/izumanetworks/kaas-example/dummy-device-app:1.0.1
+    image: ghcr.io/izumanetworks/kaas-example/dummy-device-app:1.0.2
     imagePullPolicy: IfNotPresent
     ports:
     - containerPort: 3000
+      hostPort: 3000
     env:
     - name: DATABASE_URL
       value: "postgres://postgres:password@postgres:5432/device_db"
@@ -35,4 +36,11 @@ spec:
         path: /health
         port: 3000
       initialDelaySeconds: 5
-      periodSeconds: 5 
+      periodSeconds: 5
+    volumeMounts:
+    - name: tmp-volume
+      mountPath: /tmp
+  volumes:
+  - name: tmp-volume
+    hostPath:
+      path: /tmp 
