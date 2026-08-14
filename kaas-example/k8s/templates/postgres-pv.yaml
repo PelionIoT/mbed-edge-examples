@@ -8,6 +8,26 @@ spec:
   accessModes:
     - ReadWriteOnce
   storageClassName: edge-pv
+  # Reserve this PV for this node's claim only.
+  #
+  # Every device renders an identical PV (edge-pv / 1Gi / ReadWriteOnce), and
+  # the storage class uses volumeBindingMode: Immediate, so the binder will
+  # attach a PVC to ANY Available PV of that shape. nodeAffinity is not checked
+  # at bind time - only at mount time on the node - so a claim can bind to
+  # another device's volume and then fail with:
+  #   MountVolume.NodeAffinity check failed ... No matching NodeSelectorTerms
+  # claimRef pre-binds the pair, making the outcome independent of apply order
+  # and of how many devices are onboarded.
+  #
+  # Note: WaitForFirstConsumer is the usual fix for node-pinned volumes, but it
+  # does not work here - these pods set spec.nodeName and bypass the scheduler,
+  # so volume.kubernetes.io/selected-node is never set and the PVC would stay
+  # Pending forever.
+  claimRef:
+    apiVersion: v1
+    kind: PersistentVolumeClaim
+    namespace: default
+    name: postgres-pv-claim-${NODE_NAME}
   hostPath:
     path: /var/lib/postgresql/data
   nodeAffinity:
