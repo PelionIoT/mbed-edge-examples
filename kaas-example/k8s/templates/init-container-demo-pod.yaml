@@ -1,0 +1,76 @@
+# Init container demo
+#
+# Shows the init container pattern on an Izuma KaaS edge node: an init container
+# runs to completion BEFORE the application container starts, and both share a
+# volume, so the init container can prepare data that the application then uses.
+#
+# Here the init container generates an HTML page and nginx serves it. The page
+# can only have been produced by the init container, so seeing it in the HTTP
+# response proves the init container ran, finished, and handed its output over.
+#
+# Self-contained: no Service, no DNS, no database. It can be deployed on its own.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: init-demo-${NODE_NAME}
+  labels:
+    app: init-demo
+    device: ${NODE_NAME}
+spec:
+  automountServiceAccountToken: false
+  hostname: init-demo
+  nodeName: ${NODE_NAME}
+  initContainers:
+  # Runs first. The application container is not started until this exits 0.
+  # Add more entries here to see them run one after another, in order.
+  - name: init-prepare-content
+    image: nginx:alpine
+    imagePullPolicy: IfNotPresent
+    command:
+    - sh
+    - -c
+    - |
+      set -eu
+      echo "init-prepare-content: preparing content..."
+      {
+        echo "<h1>Init container demo</h1>"
+        echo "<p>device: ${NODE_NAME}</p>"
+        echo "<p>prepared by: init-prepare-content (init container)</p>"
+        echo "<p>prepared at: $(date -u +%Y-%m-%dT%H:%M:%SZ)</p>"
+      } > /work/index.html
+      echo "init-prepare-content: done"
+    volumeMounts:
+    - name: content
+      mountPath: /work
+  containers:
+  - name: web
+    image: nginx:alpine
+    imagePullPolicy: IfNotPresent
+    ports:
+    - containerPort: 80
+      # Lets you curl the result from the node itself. 3000 and 8084 are already
+      # used by the other example pods.
+      hostPort: 31080
+    volumeMounts:
+    # Same volume as the init container, mounted at nginx's default document
+    # root, so the file written above is served without any nginx config.
+    - name: content
+      mountPath: /usr/share/nginx/html
+    readinessProbe:
+      httpGet:
+        path: /
+        port: 80
+      initialDelaySeconds: 2
+      periodSeconds: 5
+    resources:
+      requests:
+        memory: "32Mi"
+        cpu: "50m"
+      limits:
+        memory: "64Mi"
+        cpu: "100m"
+  volumes:
+  # Starts empty with the pod and lives as long as the pod. This is how the init
+  # container passes its output to the application container.
+  - name: content
+    emptyDir: {}
