@@ -117,6 +117,18 @@ The init container's own log is available with:
 kubectl logs init-demo-<device-id> -c init-prepare-content
 ```
 
+If the pod never starts and reports `Predicate PodFitsHostPorts failed`, another
+pod on that node is already using port 31080. Find it with:
+
+```sh
+kubectl get pods -o wide --field-selector spec.nodeName=<device-id>
+```
+
+then either remove that pod or change `hostPort` in the template. The port is
+only there to make the result easy to `curl`; the example does not need it, and
+the `hostPort` line can be dropped entirely if you would rather check the result
+with `kubectl logs`.
+
 ### Try it yourself
 
 - Add a second entry under `initContainers` and redeploy. They run one after
